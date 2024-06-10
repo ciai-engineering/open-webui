@@ -492,9 +492,9 @@ def store_web(form_data: UrlForm, user=Depends(get_current_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.url)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        response_rq: bool = store_data_in_vector_db(data, collection_name, overwrite=True)
         return {
-            "status": True,
+            "status": response_rq,
             "collection_name": collection_name,
             "filename": form_data.url,
         }
@@ -590,6 +590,9 @@ def store_docs_in_vector_db(docs, collection_name, overwrite: bool = False) -> b
         )
 
         embedding_texts = list(map(lambda x: x.replace("\n", " "), texts))
+        if(len(embedding_texts) == 0): 
+            log.error(f"Empty embedding_texts collection {collection_name}. embedding_texts: {embedding_texts}")
+            return False
         embeddings = embedding_func(embedding_texts)
 
         for batch in create_batches(
@@ -847,7 +850,15 @@ def scan_docs_dir(user=Depends(get_admin_user)):
 
 @app.get("/reset/db")
 def reset_vector_db(user=Depends(get_admin_user)):
-    CHROMA_CLIENT.reset()
+    return CHROMA_CLIENT.reset()
+
+@app.get("/collections")
+def reset_vector_db(user=Depends(get_admin_user)):
+    return CHROMA_CLIENT.list_collections()
+
+@app.delete("/collections/{collection_name}")
+def delete_collection(collection_name: str, user=Depends(get_admin_user)):
+    return CHROMA_CLIENT.delete_collection(name=collection_name)
 
 
 @app.get("/reset")
