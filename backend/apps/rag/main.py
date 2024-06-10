@@ -850,14 +850,17 @@ def scan_docs_dir(user=Depends(get_admin_user)):
 
 @app.get("/reset/db")
 def reset_vector_db(user=Depends(get_admin_user)):
+    log.info("Resetting vector database")
     return CHROMA_CLIENT.reset()
 
 @app.get("/collections")
 def reset_vector_db(user=Depends(get_admin_user)):
+    log.info("Listing collections")
     return CHROMA_CLIENT.list_collections()
 
 @app.delete("/collections/{collection_name}")
 def delete_collection(collection_name: str, user=Depends(get_admin_user)):
+    log.info(f"Deleting collection {collection_name}")
     return CHROMA_CLIENT.delete_collection(name=collection_name)
 
 
