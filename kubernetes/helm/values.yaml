@@ -3,7 +3,8 @@ nameOverride: ""
 ollama:
   keepAlive: true
   externalHost: ""
-  annotations: {}
+  annotations: 
+    lastUpdate: "0830"
   podAnnotations: {}
   replicaCount: 1
   image:
