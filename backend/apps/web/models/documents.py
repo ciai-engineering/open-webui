@@ -103,6 +103,16 @@ class DocumentsTable:
         except:
             return None
 
+    def get_docs_by_tags(self, tags: List[str]) -> List[DocumentModel]:
+        try:
+            query = Document.select().where(
+                Document.content.contains(json.dumps({"tags": tags}))
+            )
+            return [DocumentModel(**model_to_dict(doc)) for doc in query]
+        except Exception as e:
+            log.exception(e)
+            return []
+
     def get_docs(self) -> List[DocumentModel]:
         return [
             DocumentModel(**model_to_dict(doc))

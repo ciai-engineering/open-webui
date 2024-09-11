@@ -131,6 +131,24 @@ async def tag_doc_by_name(form_data: TagDocumentForm, user=Depends(get_current_u
             detail=ERROR_MESSAGES.NOT_FOUND,
         )
 
+@router.post("/filter_by_tags", response_model=List[DocumentResponse])
+async def filter_docs_by_tags(tags: List[str], user=Depends(get_current_user)):
+    docs = Documents.get_docs()
+    filtered_docs = []
+
+    for doc in docs:
+        doc_content = json.loads(doc.content if doc.content else "{}")
+        doc_tags = doc_content.get("tags", [])
+        if all(tag in [t['name'] for t in doc_tags] for tag in tags):
+            filtered_docs.append(DocumentResponse(
+                **{
+                    **doc.model_dump(),
+                    "content": doc_content,
+                }
+            ))
+
+    return filtered_docs
+
 
 ############################
 # UpdateDocByName
