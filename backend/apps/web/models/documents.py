@@ -109,6 +109,7 @@ class DocumentsTable:
         except Exception as e:
             log.exception(e)
             return []
+
     def get_docs(self) -> List[DocumentModel]:
         return [
             DocumentModel(**model_to_dict(doc))

@@ -14,6 +14,7 @@ from apps.web.models.documents import (
     DocumentResponse,
 )
 
+from apps.web.models.staffs import Staffs
 from config import (
     CHROMA_CLIENT,
     SRC_LOG_LEVELS
@@ -32,9 +33,21 @@ router = APIRouter()
 # GetDocuments
 ############################
 
+map_tags = {
+    "faculty": ["faculty", "common"],
+    "staff": ["staff", "common"]
+}
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_current_user)):
+    # find the tags for docs
+    staff = Staffs.get_staff_by_email(user.email.lower())
+    print(f"staff: {staff}")
+    employee_type = staff['emp_type'].lower().strip()
+    log.info(f"Employee type: {employee_type}. Tags: {map_tags[employee_type]}")
+    # find the tags for docs above
+    
+    doc_db = Documents.get_docs_by_tags(map_tags[employee_type]) if map_tags[employee_type] else Documents.get_docs()
     docs = [
         DocumentResponse(
             **{
@@ -42,7 +55,7 @@ async def get_documents(user=Depends(get_current_user)):
                 "content": json.loads(doc.content if doc.content else "{}"),
             }
         )
-        for doc in Documents.get_docs()
+        for doc in doc_db
     ]
     return docs
 
