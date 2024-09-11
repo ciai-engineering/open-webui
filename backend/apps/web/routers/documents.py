@@ -131,22 +131,19 @@ async def tag_doc_by_name(form_data: TagDocumentForm, user=Depends(get_current_u
             detail=ERROR_MESSAGES.NOT_FOUND,
         )
 
-@router.post("/filter_by_tags", response_model=List[DocumentResponse])
+@router.post("/filter/tags", response_model=List[DocumentResponse])
 async def filter_docs_by_tags(tags: List[str], user=Depends(get_current_user)):
-    docs = Documents.get_docs()
-    filtered_docs = []
-
-    for doc in docs:
-        doc_content = json.loads(doc.content if doc.content else "{}")
-        doc_tags = doc_content.get("tags", [])
-        if all(tag in [t['name'] for t in doc_tags] for tag in tags):
-            filtered_docs.append(DocumentResponse(
-                **{
-                    **doc.model_dump(),
-                    "content": doc_content,
-                }
-            ))
-
+    log.info(f"tags: {tags}")
+    filtered_docs = [
+        DocumentResponse(
+            **{
+                **doc.model_dump(),
+                "content": json.loads(doc.content if doc.content else "{}"),
+            }
+        )
+        for doc in Documents.get_docs_by_tags(tags)
+    ]
+    log.info(f"The number of documents selected: {len(filtered_docs)}")
     return filtered_docs
 
 
