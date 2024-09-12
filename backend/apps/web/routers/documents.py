@@ -38,23 +38,25 @@ MAP_TAGS = {
     "staff": ["staff", "common"]
 }
 
-@router.get("/", response_model=List[DocumentResponse])
-async def get_documents(user=Depends(get_current_user)):
+def get_documents_by_user_role(user):
     if user.role == "admin":
         log.info("Admin user. Getting all documents")
-        doc_db = Documents.get_docs()
-    else:
-        staff = Staffs.get_staff_by_email(user.email.lower())
-        if not staff:
-            log.warning(f"Staff not found for user '{user.email}'. Return these documents created by this user.")
-            doc_db = Documents.get_doc_by_user_id(user.id)
-        else:
-            log.info(f"Staff found for user '{user.email}'. Getting documents by employee type '{staff['emp_type']}'.")
-            employee_type = staff['emp_type'].lower().strip()
-            tags = MAP_TAGS.get(employee_type, [])
-            log.info(f"Employee type: {employee_type}. Tags: {tags}")
-            doc_db = Documents.get_docs_by_tags(tags)
+        return Documents.get_docs()
+    
+    staff = Staffs.get_staff_by_email(user.email.lower())
+    if not staff:
+        log.warning(f"Staff not found for user '{user.email}'. Returning documents created by this user.")
+        return Documents.get_doc_by_user_id(user.id)
+    
+    log.info(f"Staff found for user '{user.email}'. Getting documents by employee type '{staff['emp_type']}'.")
+    employee_type = staff['emp_type'].lower().strip()
+    tags = MAP_TAGS.get(employee_type, [])
+    log.info(f"Employee type: {employee_type}. Tags: {tags}")
+    return Documents.get_docs_by_tags(tags)
 
+@router.get("/", response_model=List[DocumentResponse])
+async def get_documents(user=Depends(get_current_user)):
+    doc_db = get_documents_by_user_role(user)
     log.info(f"The number of documents selected: {len(doc_db)}. doc_db: {doc_db}")
 
     return [
