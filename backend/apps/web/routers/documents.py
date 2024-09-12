@@ -42,14 +42,18 @@ map_tags = {
 async def get_documents(user=Depends(get_current_user)):
     # find the tags for docs
     staff = Staffs.get_staff_by_email(user.email.lower())
-    print(f"staff: {staff}")
+    # if staff is None, return empty list
+    if staff is None:
+        log.warning(f"Staff not found for user {user.email}")
+        return []
     employee_type = staff['emp_type'].lower().strip()
     log.info(f"Employee type: {employee_type}. Tags: {map_tags[employee_type]}")
-    # find the tags for docs above
     if user.role == "admin":
         doc_db = Documents.get_docs()
     else:
         doc_db = Documents.get_docs_by_tags(map_tags[employee_type]) if map_tags[employee_type] else Documents.get_docs()
+    # find the tags for docs above
+
     docs = [
         DocumentResponse(
             **{
