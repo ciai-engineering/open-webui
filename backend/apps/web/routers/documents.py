@@ -46,8 +46,10 @@ async def get_documents(user=Depends(get_current_user)):
     employee_type = staff['emp_type'].lower().strip()
     log.info(f"Employee type: {employee_type}. Tags: {map_tags[employee_type]}")
     # find the tags for docs above
-    
-    doc_db = Documents.get_docs_by_tags(map_tags[employee_type]) if map_tags[employee_type] else Documents.get_docs()
+    if user.role == "admin":
+        doc_db = Documents.get_docs()
+    else:
+        doc_db = Documents.get_docs_by_tags(map_tags[employee_type]) if map_tags[employee_type] else Documents.get_docs()
     docs = [
         DocumentResponse(
             **{
