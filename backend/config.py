@@ -26,10 +26,10 @@ log_levels = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
 GLOBAL_LOG_LEVEL = os.environ.get("GLOBAL_LOG_LEVEL", "").upper()
 if GLOBAL_LOG_LEVEL in log_levels:
-    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(name)s - %(levelname)s - (%(thread)d) [%(funcName)s] - %(message)s')
+    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(levelname)s - %(thread)d - %(name)s - %(funcName)s - %(message)s')
 else:
     GLOBAL_LOG_LEVEL = "INFO"
-    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(name)s - %(levelname)s - (%(thread)d) [%(funcName)s] - %(message)s')
+    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(levelname)s - %(thread)d - %(name)s - %(funcName)s - %(message)s')
 
 log = logging.getLogger(__name__)
 
