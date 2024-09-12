@@ -33,37 +33,34 @@ router = APIRouter()
 # GetDocuments
 ############################
 
-map_tags = {
+MAP_TAGS = {
     "faculty": ["faculty", "common"],
     "staff": ["staff", "common"]
 }
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_current_user)):
-    # find the tags for docs
     staff = Staffs.get_staff_by_email(user.email.lower())
-    # if staff is None, return empty list
-    if staff is None:
+    if not staff:
         log.warning(f"Staff not found for user {user.email}")
         return []
-    employee_type = staff['emp_type'].lower().strip()
-    log.info(f"Employee type: {employee_type}. Tags: {map_tags[employee_type]}")
-    if user.role == "admin":
-        doc_db = Documents.get_docs()
-    else:
-        doc_db = Documents.get_docs_by_tags(map_tags[employee_type]) if map_tags[employee_type] else Documents.get_docs()
-    # find the tags for docs above
 
-    docs = [
+    employee_type = staff['emp_type'].lower().strip()
+    tags = MAP_TAGS.get(employee_type, [])
+    log.info(f"Employee type: {employee_type}. Tags: {tags}")
+
+    doc_db = Documents.get_docs() if user.role == "admin" else Documents.get_docs_by_tags(tags)
+    log.info(f"The number of documents selected: {len(doc_db)}. doc_db: {doc_db}")
+
+    return [
         DocumentResponse(
             **{
                 **doc.model_dump(),
-                "content": json.loads(doc.content if doc.content else "{}"),
+                "content": json.loads(doc.content or "{}"),
             }
         )
         for doc in doc_db
     ]
-    return docs
 
 
 ############################
