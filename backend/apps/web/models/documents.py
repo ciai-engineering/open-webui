@@ -110,6 +110,14 @@ class DocumentsTable:
             log.exception(e)
             return []
 
+    def get_doc_by_user_id(self, user_id: str) -> List[DocumentModel]:
+        try:
+            query = Document.select().where(Document.user_id == user_id)
+            return [DocumentModel(**model_to_dict(doc)) for doc in query]
+        except Exception as e:
+            log.exception(e)
+            return []
+
     def get_docs(self) -> List[DocumentModel]:
         return [
             DocumentModel(**model_to_dict(doc))

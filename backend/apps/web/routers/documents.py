@@ -40,16 +40,21 @@ MAP_TAGS = {
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_current_user)):
-    staff = Staffs.get_staff_by_email(user.email.lower())
-    if not staff:
-        log.warning(f"Staff not found for user {user.email}")
-        return []
+    if user.role == "admin":
+        log.info("Admin user. Getting all documents")
+        doc_db = Documents.get_docs()
+    else:
+        staff = Staffs.get_staff_by_email(user.email.lower())
+        if not staff:
+            log.warning(f"Staff not found for user '{user.email}'. Return these documents created by this user.")
+            doc_db = Documents.get_doc_by_user_id(user.id)
+        else:
+            log.info(f"Staff found for user '{user.email}'. Getting documents by employee type '{staff['emp_type']}'.")
+            employee_type = staff['emp_type'].lower().strip()
+            tags = MAP_TAGS.get(employee_type, [])
+            log.info(f"Employee type: {employee_type}. Tags: {tags}")
+            doc_db = Documents.get_docs_by_tags(tags)
 
-    employee_type = staff['emp_type'].lower().strip()
-    tags = MAP_TAGS.get(employee_type, [])
-    log.info(f"Employee type: {employee_type}. Tags: {tags}")
-
-    doc_db = Documents.get_docs() if user.role == "admin" else Documents.get_docs_by_tags(tags)
     log.info(f"The number of documents selected: {len(doc_db)}. doc_db: {doc_db}")
 
     return [
