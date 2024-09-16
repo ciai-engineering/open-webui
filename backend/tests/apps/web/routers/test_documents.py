@@ -8,14 +8,14 @@ from utils.utils import get_current_user, get_admin_user
 import time
 import json
 
-# 创建一个 FastAPI 应用并挂载路由
+# Create a FastAPI app and include the router
 app = FastAPI()
 app.include_router(router)
 
-# 创建测试客户端
+# Create a test client
 client = TestClient(app)
 
-# 模拟普通用户数据
+# Mock user data
 class MockUser:
     def __init__(self, id, email, role):
         self.id = id
@@ -25,7 +25,7 @@ class MockUser:
 mock_user = MockUser(id="test_user_id", email="test@example.com", role="user")
 mock_admin = MockUser(id="admin_user_id", email="admin@example.com", role="admin")
 
-# 修改模拟文档数据
+# Mock document data
 mock_doc = MagicMock()
 mock_doc.collection_name = "test_collection"
 mock_doc.name = "test_doc"
@@ -46,32 +46,32 @@ mock_doc.model_dump.return_value = {
 
 @pytest.fixture(autouse=True)
 def mock_dependencies():
-    # 模拟普通用户
+    # Mock current user
     def mock_get_current_user():
         return mock_user
 
-    # 模拟管理员用户
+    # Mock admin user
     def mock_get_admin_user():
         return mock_admin
 
-    # 替换依赖
+    # Override dependencies
     app.dependency_overrides[get_current_user] = mock_get_current_user
     app.dependency_overrides[get_admin_user] = mock_get_admin_user
 
     yield
 
-    # 清理依赖覆盖
+    # Clear dependency overrides
     app.dependency_overrides.clear()
 
 @pytest.fixture
 def mock_documents():
     with patch("apps.web.routers.documents.Documents") as mock:
         mock.get_docs.return_value = [mock_doc]
-        mock.get_doc_by_name.return_value = None  # 初始时文档不存在
+        mock.get_doc_by_name.return_value = None  # Document does not exist initially
         mock.insert_new_doc.return_value = mock_doc
         mock.update_doc_by_name.return_value = mock_doc
         mock.delete_doc_by_name.return_value = True
-        mock.get_docs_by_tags.return_value = [mock_doc]  # 确保返回非空列表
+        mock.get_docs_by_tags.return_value = [mock_doc]  # Ensure non-empty list is returned
         yield mock
 
 @pytest.fixture
@@ -110,13 +110,13 @@ def test_create_new_doc(mock_documents):
     assert "timestamp" in response.json()
     assert isinstance(response.json()["timestamp"], int)
 
-    # 测试创建已存在的文档
+    # Test creating an existing document
     mock_documents.get_doc_by_name.return_value = mock_doc
     response = client.post("/create", json=doc_form.model_dump())
     assert response.status_code == 400
     assert "detail" in response.json()
 
-# 其他测试函数类似修改...
+# Other test functions similarly modified...
 
 def test_create_new_doc_already_exists(mock_documents):
     mock_documents.get_doc_by_name.return_value = mock_doc
@@ -127,6 +127,6 @@ def test_create_new_doc_already_exists(mock_documents):
         filename="existing.txt",
         content="This document already exists."
     )
-    response = client.post("/create", json=doc_form.model_dump())  # 使用 model_dump() 替代 dict()
+    response = client.post("/create", json=doc_form.model_dump())  # Use model_dump() instead of dict()
     assert response.status_code == 400
     assert "detail" in response.json()
