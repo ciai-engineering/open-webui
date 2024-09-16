@@ -29,13 +29,15 @@ run_tests() {
     local test_files=$(find $test_dir -name "test_*.py")
 
     for test_file in $test_files; do
+        echo ""
+        echo ""
         echo "****************************************************"
         total_files=$(echo "$test_files" | wc -l | xargs)
         echo "Running test $test_file number $((++count)) out of $total_files"
-        echo "****************************************************"
         # echo "$(date '+%Y-%m-%d %H:%M:%S') Running tests in $test_file with unittest"
         # python3 -m unittest $test_file
         echo "$(date '+%Y-%m-%d %H:%M:%S') Running tests in $test_file with pytest"
+        echo "****************************************************"
         pytest $test_file
     done
     echo "All tests completed."

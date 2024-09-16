@@ -1,12 +1,10 @@
+from functools import reduce
 from pydantic import BaseModel
 from peewee import *
 from playhouse.shortcuts import model_to_dict
-from typing import List, Union, Optional
+from typing import List, Optional
 import time
 import logging
-
-from utils.utils import decode_token
-from utils.misc import get_gravatar_url
 
 from apps.web.internal.db import DB
 
@@ -102,6 +100,23 @@ class DocumentsTable:
             return DocumentModel(**model_to_dict(document))
         except:
             return None
+
+
+    def get_docs_by_tags(self, tags: List[str]) -> List[DocumentModel]:
+        try:
+            query = Document.select().where(reduce(lambda x, y: x | y, [Document.content.contains(f'"name": "{tag}"') for tag in tags]))
+            return [DocumentModel(**model_to_dict(doc)) for doc in query]
+        except Exception as e:
+            log.exception(e)
+            return []
+
+    def get_doc_by_user_id(self, user_id: str) -> List[DocumentModel]:
+        try:
+            query = Document.select().where(Document.user_id == user_id)
+            return [DocumentModel(**model_to_dict(doc)) for doc in query]
+        except Exception as e:
+            log.exception(e)
+            return []
 
     def get_docs(self) -> List[DocumentModel]:
         return [

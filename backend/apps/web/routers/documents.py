@@ -14,6 +14,7 @@ from apps.web.models.documents import (
     DocumentResponse,
 )
 
+from apps.web.models.staffs import Staffs
 from config import (
     CHROMA_CLIENT,
     SRC_LOG_LEVELS
@@ -32,19 +33,41 @@ router = APIRouter()
 # GetDocuments
 ############################
 
+MAP_TAGS = {
+    "faculty": ["faculty", "common"],
+    "staff": ["staff", "common"]
+}
+
+def get_documents_by_user_role(user):
+    if user.role == "admin":
+        log.info("Admin user. Getting all documents")
+        return Documents.get_docs()
+    
+    staff = Staffs.get_staff_by_email(user.email.lower())
+    if not staff:
+        log.warning(f"Staff not found for user '{user.email}'. Returning documents created by this user.")
+        return Documents.get_doc_by_user_id(user.id)
+    
+    log.info(f"Staff found for user '{user.email}'. Getting documents by employee type '{staff['emp_type']}'.")
+    employee_type = staff['emp_type'].lower().strip()
+    tags = MAP_TAGS.get(employee_type, [])
+    log.info(f"Employee type: {employee_type}. Tags: {tags}")
+    return Documents.get_docs_by_tags(tags)
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_current_user)):
-    docs = [
+    doc_db = get_documents_by_user_role(user)
+    log.info(f"The number of documents selected: {len(doc_db)}. doc_db: {doc_db}")
+
+    return [
         DocumentResponse(
             **{
                 **doc.model_dump(),
-                "content": json.loads(doc.content if doc.content else "{}"),
+                "content": json.loads(doc.content or "{}"),
             }
         )
-        for doc in Documents.get_docs()
+        for doc in doc_db
     ]
-    return docs
 
 
 ############################
@@ -130,6 +153,21 @@ async def tag_doc_by_name(form_data: TagDocumentForm, user=Depends(get_current_u
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.NOT_FOUND,
         )
+
+@router.post("/filter/tags", response_model=List[DocumentResponse])
+async def filter_docs_by_tags(tags: List[str], user=Depends(get_current_user)):
+    log.info(f"tags: {tags}")
+    filtered_docs = [
+        DocumentResponse(
+            **{
+                **doc.model_dump(),
+                "content": json.loads(doc.content if doc.content else "{}"),
+            }
+        )
+        for doc in Documents.get_docs_by_tags(tags)
+    ]
+    log.info(f"The number of documents selected: {len(filtered_docs)}")
+    return filtered_docs
 
 
 ############################
