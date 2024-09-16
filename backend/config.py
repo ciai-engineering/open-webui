@@ -649,11 +649,21 @@ INITIAL_TOOLKITS = os.environ.get(
             "        elif user_type == \"unlimited contract\":\n"
             "            return \"You can use https://aderp.dof.abudhabi.ae/OA_HTML/AppsLocalLogin.jsp for leave application.\"\n"
             "        else:\n"
+            "            return \"Due to your account type, this feature has been restricted. Please try logging in with Outlook account or contacting the administrator.\"\n\n"
+            "    def request_hr_document(self, user_type):\n"
+            "        \"\"\"\n"
+            "        This function assists users in requesting various HR documents, such as job letters, salary certificates (English/Arabic), bank letters, salary transfer letters, golden visa application letters, or no objection certificates. It should be triggered **only when the user's query clearly indicates an intent to request a specific document**. Simple mentions of document types without a clear request should **not** trigger this function. This function is **not** intended for inquiries about document status or availability. The query must explicitly request the generation of an HR document. If the request does not clearly indicate this, the function should not be triggered.\n"
+            "        \"\"\"\n"
+            "        if user_type != \"unlimited contract\" and user_type is not None:\n"
+            "            return \"hr_documents_form=True\"\n"
+            "        elif user_type == \"unlimited contract\":\n"
+            "            return \"You can use https://aderp.dof.abudhabi.ae/OA_HTML/AppsLocalLogin.jsp for leave application.\"\n"
+            "        else:\n"
             "            return \"Due to your account type, this feature has been restricted. Please try logging in with Outlook account or contacting the administrator.\"\n"
         )
+
     })
 )
-
 
 INITIAL_TOOLKITS = json.loads(INITIAL_TOOLKITS)
 

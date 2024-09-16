@@ -200,7 +200,7 @@ async def get_function_call_response(prompt, tool_id, template, task_model_id, u
                 function = getattr(toolkit_module, result["name"])
                 function_result = None
                 try:
-                    if result["name"] == 'display_leave_application':
+                    if result["name"] in ['display_leave_application', 'request_hr_document']:
                         result["parameters"] = {}
                         if user.extra_sso:
                             extra_sso_dict = json.loads(user.extra_sso)
