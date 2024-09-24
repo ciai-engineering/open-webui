@@ -33,3 +33,20 @@ class LeaveForm(BaseModel):
     email: str
     date: str
 
+class HrDocsResponse(BaseModel):
+    email: str
+    subject: str
+    recipient: str
+
+
+class HrDocsForm(BaseModel):
+    name: str
+    employee_id: str
+    job_title: str
+    dept: str
+    type_of_document: str
+    purpose: str
+    language: str
+    addressee: str
+    email: str
+    date: str
