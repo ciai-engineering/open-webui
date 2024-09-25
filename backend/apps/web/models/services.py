@@ -8,7 +8,7 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 
 ####################
-# Forms
+# Leave Forms
 ####################
 
 
@@ -32,6 +32,10 @@ class LeaveForm(BaseModel):
     tele: str
     email: str
     date: str
+
+####################
+# Hr Docs Forms
+####################
 
 class HrDocsResponse(BaseModel):
     email: str
