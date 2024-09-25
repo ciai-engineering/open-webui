@@ -324,16 +324,16 @@ class RAGMiddleware(BaseHTTPMiddleware):
                 return [item for i, item in enumerate(lst) if i not in indices]
 
             # Get the indices where distances are greater than 1
-            indices_to_remove = [i for i, distance in enumerate(citations[0]['distances']) if distance > MAX_CITATION_DISTANCE]
+            # indices_to_remove = [i for i, distance in enumerate(citations[0]['distances']) if distance > MAX_CITATION_DISTANCE]
 
             # List of keys to check and filter
             keys_to_filter = ['metadata', 'document']
 
             # Loop through each key and remove indices if the list is not None
-            for key in keys_to_filter:
-                if citations[0][key] is not None:
-                    if isinstance(citations[0][key], list):
-                        citations[0][key] = remove_indices(citations[0][key], indices_to_remove)
+            # for key in keys_to_filter:
+            #     if citations[0][key] is not None:
+            #         if isinstance(citations[0][key], list):
+            #             citations[0][key] = remove_indices(citations[0][key], indices_to_remove)
 
             
             # Inject the citations into the response
