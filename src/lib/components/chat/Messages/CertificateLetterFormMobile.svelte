@@ -72,14 +72,11 @@
 		return `${month} ${day}${suffix}, ${year}`;
 	};
 	const handleConfirm = () => {
-		// if (!$user.extra_sso) {
-		// 	toast.error('User type error. Only supports users login with outlook account.');
-		// 	return;
-		// }
-		// const ssoData = JSON.parse($user.extra_sso);
-		const ssoData = JSON.parse(
-			'{"emp_id": "AI40118", "email": "yewang.xie@mbzuai.ac.ae", "emp_type": "Staff", "first_name": "Yewang", "last_name": "Xie", "job_title": "Senior Frontend Engineer ", "department": "CIAI", "new_department": "CIAI", "line_manager_name": "Yue Peng", "line_manager_email": "yue.peng@mbzuai.ac.ae", "contract_type": "Fixed Term Contract", "access_token": "eyJ0eXAiOiJKV1QiLCJub25jZSI6IkFhOXRXRm9KZGJMZ3Fad1ZETzJrMEJ4VS03b1ljeWYxMmNmVTZkbEo4VlkiLCJhbGciOiJSUzI1NiIsIng1dCI6Ik1jN2wzSXo5M2c3dXdnTmVFbW13X1dZR1BrbyIsImtpZCI6Ik1jN2wzSXo5M2c3dXdnTmVFbW13X1dZR1BrbyJ9.eyJhdWQiOiIwMDAwMDAwMy0wMDAwLTAwMDAtYzAwMC0wMDAwMDAwMDAwMDAiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9jOTMyNzJkMy0xYjA3LTRiM2QtYTNiNi0xOWIzNGE5NzM5MTUvIiwiaWF0IjoxNzI3MTc5NTc3LCJuYmYiOjE3MjcxNzk1NzcsImV4cCI6MTcyNzE4Mzg0NywiYWNjdCI6MCwiYWNyIjoiMSIsImFpbyI6IkFUUUF5LzhZQUFBQUlscFFybm1uc2VNblMvZW9CSUtOTmM4Q0VRWG5iOEZmdEE5Vkd6TS9XRVdxa3hkYVhva0NvMkw3c0V2TGIvb2wiLCJhbXIiOlsicHdkIl0sImFwcF9kaXNwbGF5bmFtZSI6IkNJQUktUkFHIiwiYXBwaWQiOiIyYjBlNTBmNi02OTM3LTRhMzItOTUwMS05NGJmNzM1N2U4ODMiLCJhcHBpZGFjciI6IjEiLCJmYW1pbHlfbmFtZSI6IlhpZSIsImdpdmVuX25hbWUiOiJZZXdhbmciLCJpZHR5cCI6InVzZXIiLCJpcGFkZHIiOiI1LjE5NS4wLjE0NSIsIm5hbWUiOiJZZXdhbmcgWGllIiwib2lkIjoiYjQ2YjlmMjYtYmRkNC00YjYzLWJmZjItY2NhODRmOTUyNzJmIiwib25wcmVtX3NpZCI6IlMtMS01LTIxLTgwNTc2MzEwMy0yNzk4Njg3MzQ1LTY1MzAyMTc3OS01NzIyIiwicGxhdGYiOiI1IiwicHVpZCI6IjEwMDMyMDAzNkJGQTREQzQiLCJyaCI6IjAuQVVnQTAzSXl5UWNiUFV1anRobXpTcGM1RlFNQUFBQUFBQUFBd0FBQUFBQUFBQUFMQWFzLiIsInNjcCI6IkRpcmVjdG9yeS5SZWFkLkFsbCBNYWlsLlJlYWQgTWFpbC5TZW5kIFVzZXIuUmVhZCBVc2VyLlJlYWRCYXNpYy5BbGwgcHJvZmlsZSBvcGVuaWQgZW1haWwiLCJzaWduaW5fc3RhdGUiOlsiaW5rbm93bm50d2siLCJrbXNpIl0sInN1YiI6IjdXVWFCazFKZlJKdnNJVXc3cW5iZXdwWVFrVUdLelBpdFBod1NXUURUSmMiLCJ0ZW5hbnRfcmVnaW9uX3Njb3BlIjoiRVUiLCJ0aWQiOiJjOTMyNzJkMy0xYjA3LTRiM2QtYTNiNi0xOWIzNGE5NzM5MTUiLCJ1bmlxdWVfbmFtZSI6Illld2FuZy5YaWVAbWJ6dWFpLmFjLmFlIiwidXBuIjoiWWV3YW5nLlhpZUBtYnp1YWkuYWMuYWUiLCJ1dGkiOiI5b0U2RGR1VTBVMmZ1VEtVMDQ0WEFBIiwidmVyIjoiMS4wIiwid2lkcyI6WyJiNzlmYmY0ZC0zZWY5LTQ2ODktODE0My03NmIxOTRlODU1MDkiXSwieG1zX2lkcmVsIjoiMSAyIiwieG1zX3N0Ijp7InN1YiI6InV4dmdvQVh3cm1fOWV6LWFsRXY0RGY2T2dRRk5yTkpJSE5UOV9UNkozcTQifSwieG1zX3RjZHQiOjE1Nzc2OTQwNjd9.BwxSbSFLASVw07X4bECrXPhidzG-D-L3PtEUZzCcaWX6ELS-h7tMnsISPEBGWYUAJyId20GBXfbtUGHsHkl14WJZlS4zkFkjYaNVPgUB4VAWy6ChP4qDBJDr5-M5SulJlBacX6JttQqn6ozxKyEap_kd36t_L90LwPsO46ThXh4ZCi2uRCtIANBcCZlh48O-Rp3oBq6--GXPWMObvTRzOfZVLuxsUmQPRwyHlpOb0jxxHNMGUFbB2figQUvryGlyZCBlXLWRQxd7nG_3HiQ8HADxKSBN6gLM_sIQ7O4NZ-f2IJDOEfr5BvhymygfcsRrSsyFdgAt920E0VL9XdfyrQ"}'
-		);
+		if (!$user.extra_sso) {
+			toast.error('User type error. Only supports users login with outlook account.');
+			return;
+		}
+		const ssoData = JSON.parse($user.extra_sso);
 		const formData = {
 			name: $user.name,
 			employee_id: ssoData.emp_id,
