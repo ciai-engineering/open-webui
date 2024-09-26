@@ -35,6 +35,8 @@
 	import CitationsModal from '$lib/components/chat/Messages/CitationsModal.svelte';
 	import FormActionModal from '$lib/components/chat/Messages/FormActionModal.svelte';
 	import FormActionModalMobile from '$lib/components/chat/Messages/FormActionModalMobile.svelte';
+	import CertificateLetterForm from '$lib/components/chat/Messages/CertificateLetterForm.svelte';
+	import CertificateLetterFormMobile from '$lib/components/chat/Messages/CertificateLetterFormMobile.svelte';
 
 	export let modelfiles = [];
 	export let message;
@@ -72,6 +74,7 @@
 	let selectedCitation = null;
 
 	let showLeaveForm = true;
+	let showLetterForm = true;
 
 	let useModelName = false;
 
@@ -482,6 +485,41 @@
 													editedContent = 'annual_leave_form';
 													editMessageConfirmHandler();
 												}}>Click here to apply for leave</button
+											>
+										{:else if token.raw.includes('hr_documents_form')}
+											{#if $isMobile}
+												<CertificateLetterFormMobile
+													show={showLetterForm}
+													on:confirm={(e) => {
+														const data = e.detail ?? {};
+														editedContent = `Your have submitted a request for ${data.type_of_document.toLowerCase()} successfully.`;
+														editMessageConfirmHandler();
+													}}
+													on:cancel={() => {
+														editedContent = 'hr_documents_canceled';
+														editMessageConfirmHandler();
+													}}
+												/>
+											{:else}
+												<CertificateLetterForm
+													on:confirm={(e) => {
+														const data = e.detail ?? {};
+														editedContent = `Your have submitted a request for ${data.type_of_document.toLowerCase()} successfully.`;
+														editMessageConfirmHandler();
+													}}
+													on:cancel={() => {
+														editedContent = 'hr_documents_canceled';
+														editMessageConfirmHandler();
+													}}
+												/>
+											{/if}
+										{:else if token.raw.includes('hr_documents_canceled')}
+											<button
+												class="px-4 my-2 rounded-lg bg-[#ffffffaa] hover:bg-[#fff] dark:bg-[#ffffff50] dark:hover:bg-[#ffffff80]"
+												on:click={() => {
+													editedContent = 'hr_documents_form=True';
+													editMessageConfirmHandler();
+												}}>Apply for HR related certificates/letters</button
 											>
 										{:else}
 											{@html marked.parse(token.raw, {
