@@ -97,7 +97,6 @@
 					...formData,
 					documentName: type
 				});
-				show = false;
 			})
 			.catch((err) => {
 				toast(err.detail + ' Submission failed.');
