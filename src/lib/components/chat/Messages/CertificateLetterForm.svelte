@@ -90,7 +90,7 @@
 			email: $user.email,
 			date: dateFormatter()
 		};
-		dispatch('confirm', formData);
+		// dispatch('confirm', formData);
 		submitHRDocuments(localStorage.token, formData)
 			.then((res) => {
 				dispatch('confirm', formData);
