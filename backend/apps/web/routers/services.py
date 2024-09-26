@@ -129,20 +129,26 @@ async def submit_hr_doc_form(
 
         mail = Mail(client_id=CLIENT_ID, tenant_id=TENANT, authorization=f"Bearer {access_token}")
 
-        if form_data.type_of_document == "Job Letter Flow":
+        if form_data.type_of_document == 1:
+            # "Job Letter"
             subject, body = JobLetterRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
-        elif form_data.type_of_document == "Salary Certificate Flow":
+        elif form_data.type_of_document == 2:
+            # "Salary Certificate"
             subject, body = SalaryCertificateRequest(form_data.name, form_data.purpose, form_data.addressee, form_data.language).generate_email()
-        elif form_data.type_of_document == "Bank letter":
+        elif form_data.type_of_document == 3:
+            # "Bank letter"
             subject, body = BankLetterRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
-        elif form_data.type_of_document == "Salary Transfer letter":
+        elif form_data.type_of_document == 4:
+            # "Salary Transfer letter"
             subject, body = SalaryTransferLetterRequest(form_data.name, form_data.addressee).generate_email()
-        elif form_data.type_of_document == "NOC No Objection Certificate":
+        elif form_data.type_of_document == 5:
+            # "NOC No Objection Certificate"
             subject, body = NOCRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
-        elif form_data.type_of_document == "Golden Visa Application letter":
+        elif form_data.type_of_document == 6:
+            # "Golden Visa Application letter"
             subject, body = GoldenVisaApplicationRequest(form_data.name).generate_email()
         else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_PARAM)
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ERROR_MESSAGES.INVALID_PARAM)
 
         recipient = HR_EMAIL
         if not recipient:
