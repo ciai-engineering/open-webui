@@ -83,7 +83,7 @@
 			employee_id: ssoData.emp_id,
 			job_title: ssoData.job_title,
 			dept: ssoData.department,
-			type_of_document: type,
+			type_of_document: letters.findIndex((el) => el == type) + 1 ?? undefined,
 			purpose,
 			language,
 			addressee,
@@ -93,7 +93,10 @@
 		// dispatch('confirm', formData);
 		submitHRDocuments(localStorage.token, formData)
 			.then((res) => {
-				dispatch('confirm', formData);
+				dispatch('confirm', {
+					...formData,
+					documentName: type
+				});
 				show = false;
 			})
 			.catch((err) => {

@@ -492,7 +492,7 @@
 													show={showLetterForm}
 													on:confirm={(e) => {
 														const data = e.detail ?? {};
-														editedContent = `Your have submitted a request for ${data.type_of_document.toLowerCase()} successfully.`;
+														editedContent = `Your have submitted a request for ${data.documentName.toLowerCase()} successfully.`;
 														editMessageConfirmHandler();
 													}}
 													on:cancel={() => {
@@ -504,7 +504,7 @@
 												<CertificateLetterForm
 													on:confirm={(e) => {
 														const data = e.detail ?? {};
-														editedContent = `Your have submitted a request for ${data.type_of_document.toLowerCase()} successfully.`;
+														editedContent = `Your have submitted a request for ${data.documentName.toLowerCase()} successfully.`;
 														editMessageConfirmHandler();
 													}}
 													on:cancel={() => {
