@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - local_dev
+      - pipeline
     tags:
       - v*
   pull_request:
@@ -273,7 +274,6 @@ jobs:
           images: ${{ env.FULL_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=branch,suffix=-{{sha}}-{{date 'YYMMDDHHmmss' tz='Asia/Dubai'}}
             type=ref,event=tag
             type=ref,event=pr,suffix=-{{sha}}
             type=semver,pattern={{version}}
