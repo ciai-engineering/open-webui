@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - local_dev
-      - pipeline
     tags:
       - v*
   pull_request:
