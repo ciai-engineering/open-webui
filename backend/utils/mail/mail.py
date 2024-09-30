@@ -16,6 +16,15 @@ class Mail:
         self.graph: Graph = Graph(azure_settings)
 
     async def send_mail(self, subject, body, recipient, form_data: LeaveForm):
+        """
+        Send an email with a filled leave form as an attachment.
+
+        Args:
+            subject (str): The subject of the email.
+            body (str): The body content of the email.
+            recipient (str): The recipient's email address.
+            form_data (LeaveForm): The data to fill in the leave form.
+        """
         # fill the leave form
         template_path = 'utils/mail/leave_template.pdf'
         output_path = 'utils/mail/'
@@ -35,12 +44,25 @@ class Mail:
                     '{EMAIL}': form_data.email,
                     '{DATE}': form_data.date,
                 }
-        #get the form file path
+        # get the form file path
         file_path = FillLeaveForm(template_path, output_path, data).fill_template()
-        #make the mail content and send the mail can customize the subject and body
+        # make the mail content and send the mail can customize the subject and body
         attachment_path = file_path
         attachment_name = 'Leave_Application_Form.pdf'
 
         logging.info("Sending email...")
         await self.graph.send_leave_mail(subject, body, recipient, attachment_path, attachment_name)
+        logging.info("Success")
+
+    async def send_simple_mail(self, subject, content, recipient):
+        """
+        Send a simple email without any attachments.
+
+        Args:
+            subject (str): The subject of the email.
+            content (str): The body content of the email.
+            recipient (str): The recipient's email address.
+        """
+        logging.info("Sending simple email...")
+        await self.graph.send_leave_mail(subject, content, recipient, None, None)
         logging.info("Success")

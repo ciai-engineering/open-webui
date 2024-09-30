@@ -7,6 +7,14 @@ from fastapi_sso.sso.microsoft import MicrosoftSSO
 from fastapi import APIRouter
 import json
 from utils.mail.mail import Mail
+from utils.mail.templates import(
+    JobLetterRequest,
+    SalaryCertificateRequest,
+    BankLetterRequest,
+    SalaryTransferLetterRequest,
+    NOCRequest,
+    GoldenVisaApplicationRequest,
+)
 
 from utils.utils import (
     get_current_user,
@@ -15,6 +23,8 @@ from utils.utils import (
 from apps.web.models.services import (
     LeaveResponse,
     LeaveForm,
+    HrDocsResponse,
+    HrDocsForm
 )
 
 from config import (
@@ -55,7 +65,7 @@ async def submit_leave_form(
         if not session_user.extra_sso:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
         access_token = json.loads(session_user.extra_sso)[ACCESS_TOKEN]
-        logging.info(f"SSO access_token: {access_token}")
+        logging.info(f"SSO access_token: {access_token[:20]}***")
 
         mail = Mail(client_id=CLIENT_ID, tenant_id=TENANT, authorization=f"Bearer {access_token}")
         
@@ -98,5 +108,72 @@ Sincerely,
                 "subject": subject,
                 "recipient": recipient,
             }
+    else:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_CRED)
+
+
+############################
+# HR Documents Application
+############################
+
+@router.post("/hr-document", response_model=HrDocsResponse)
+async def submit_hr_doc_form(
+    request: Request,form_data: HrDocsForm, session_user = Depends(get_current_user)
+):
+    logging.info(f"Received Hr Documents form data: {form_data}")
+    if session_user:
+        if not session_user.extra_sso:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
+        access_token = json.loads(session_user.extra_sso)[ACCESS_TOKEN]
+        logging.info(f"SSO access_token: {access_token[:20]}***")
+
+        mail = Mail(client_id=CLIENT_ID, tenant_id=TENANT, authorization=f"Bearer {access_token}")
+
+        if form_data.type_of_document == 1:
+            # "Job Letter"
+            subject, body = JobLetterRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
+        elif form_data.type_of_document == 2:
+            # "Salary Certificate"
+            subject, body = SalaryCertificateRequest(form_data.name, form_data.purpose, form_data.addressee, form_data.language).generate_email()
+        elif form_data.type_of_document == 3:
+            # "Bank letter"
+            subject, body = BankLetterRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
+        elif form_data.type_of_document == 4:
+            # "Salary Transfer letter"
+            subject, body = SalaryTransferLetterRequest(form_data.name, form_data.addressee).generate_email()
+        elif form_data.type_of_document == 5:
+            # "NOC No Objection Certificate"
+            subject, body = NOCRequest(form_data.name, form_data.purpose, form_data.addressee).generate_email()
+        elif form_data.type_of_document == 6:
+            # "Golden Visa Application letter"
+            subject, body = GoldenVisaApplicationRequest(form_data.name).generate_email()
+        else:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ERROR_MESSAGES.INVALID_PARAM)
+
+        recipient = HR_EMAIL
+        if not recipient:
+            logging.warn(f"The HR_EMAIL is None. It will be seted with userslef's email {session_user.email}")
+            recipient = session_user.email
+        
+        try:
+            logging.info(f"Preparing to send email to {recipient}")
+            await mail.send_simple_mail(subject, body, recipient)
+            logging.info(f"Email sent to {recipient}")
+        except PermissionError as e:
+            logging.error(f"Error sending email: {e}")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
+        except ValueError as e:
+            logging.error(f"Error sending email: {e}")
+            raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)
+        except Exception as e:
+            logging.error(f"Error sending email: {e}")
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Oops! Something went wrong while sending the email.")
+
+        hr_docs_response = HrDocsResponse(
+            email=session_user.email,
+            subject=subject,
+            recipient=recipient,
+        )
+        return hr_docs_response
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_CRED)
