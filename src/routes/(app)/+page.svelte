@@ -262,12 +262,19 @@ You are a RAG system designed to support HR services for MBZUAI university. You 
 
 			// Wait until history/message have been updated
 			await tick();
-
+			
+			// Update latest default documents
+			const docs = messages
+			.filter((message) => message?.files ?? null)
+			.map((message) =>
+				message.files.filter((item) => item.type === 'doc' || item.type === 'collection')
+			)
+			.flat(1); 
+			if (!JSON.stringify(docs).includes(JSON.stringify($defaultDocuments))) {
+				history.messages[userMessageId].files = $defaultDocuments;
+			}
 			// Create new chat if only one message in messages
 			if (messages.length == 1) {
-				if (!history.messages[userMessageId].files) {
-					history.messages[userMessageId].files = $defaultDocuments;
-				}
 				if ($settings.saveChatHistory ?? true) {
 					chat = await createNewChat(localStorage.token, {
 						id: $chatId,
@@ -408,6 +415,7 @@ You are a RAG system designed to support HR services for MBZUAI university. You 
 				message.files.filter((item) => item.type === 'doc' || item.type === 'collection')
 			)
 			.flat(1);
+		console.info(docs, 'dddddddddd')
 		const [res, controller] = await generateChatCompletion(localStorage.token, {
 			model: model,
 			messages: messagesBody,
@@ -603,7 +611,7 @@ You are a RAG system designed to support HR services for MBZUAI university. You 
 			)
 			.flat(1);
 
-		console.log(docs);
+		console.log(docs, 'ddddd222222');
 
 		scrollToBottom();
 
