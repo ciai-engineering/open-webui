@@ -48,7 +48,7 @@ class HrDocsForm(BaseModel):
     employee_id: str
     job_title: str
     dept: str
-    type_of_document: str
+    type_of_document: int
     purpose: str
     language: str
     addressee: str
