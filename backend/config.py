@@ -26,10 +26,10 @@ log_levels = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
 GLOBAL_LOG_LEVEL = os.environ.get("GLOBAL_LOG_LEVEL", "").upper()
 if GLOBAL_LOG_LEVEL in log_levels:
-    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(levelname)s - %(thread)d - %(name)s - %(funcName)s - %(message)s')
 else:
     GLOBAL_LOG_LEVEL = "INFO"
-    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True, format='%(asctime)s - %(levelname)s - %(thread)d - %(name)s - %(funcName)s - %(message)s')
 
 log = logging.getLogger(__name__)
 
@@ -646,6 +646,16 @@ INITIAL_TOOLKITS = os.environ.get(
             "        \"\"\"\n"
             "        if user_type != \"unlimited contract\" and user_type is not None:\n"
             "            return \"annual_leave_form=True\"\n"
+            "        elif user_type == \"unlimited contract\":\n"
+            "            return \"You can use https://aderp.dof.abudhabi.ae/OA_HTML/AppsLocalLogin.jsp for leave application.\"\n"
+            "        else:\n"
+            "            return \"Due to your account type, this feature has been restricted. Please try logging in with Outlook account or contacting the administrator.\"\n\n"
+            "    def request_hr_document(self, user_type):\n"
+            "        \"\"\"\n"
+            "        This function is designed to assist users in generating specific HR documents, including job letters, salary certificates (in both English and Arabic), bank letters, salary transfer letters, golden visa application letters, and no objection certificates (NOCs). It should only be triggered when the user’s query explicitly requests the creation or provision of one of these documents. For example, requests like 'I need a salary certificate' or 'Please provide a bank letter' should trigger the function. However, if the query simply mentions these documents without a clear intent to request them — such as asking what a document includes or whether a document is needed for a process — the function should **not** be triggered. Additionally, this function should not handle inquiries about the status of documents (e.g., 'Has my salary certificate been issued?'), document details (e.g., 'What does a job letter include?'), or other general questions related to documents. It is strictly for cases where a user is making a direct and specific request to generate one of the mentioned HR documents. If the query lacks clarity about the request, or is ambiguous, the function should not be activated.\n"
+            "        \"\"\"\n"
+            "        if user_type != \"unlimited contract\" and user_type is not None:\n"
+            "            return \"hr_documents_form=True\"\n"
             "        elif user_type == \"unlimited contract\":\n"
             "            return \"You can use https://aderp.dof.abudhabi.ae/OA_HTML/AppsLocalLogin.jsp for leave application.\"\n"
             "        else:\n"

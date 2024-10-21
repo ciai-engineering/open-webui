@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - local_dev
+    
 
 env:
   REGISTRY: ghcr.io
@@ -27,7 +28,7 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm64
+          # - linux/arm64
 
     steps:
       - name: Prepare
@@ -58,8 +59,9 @@ jobs:
           images: ${{ env.FULL_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
+            type=ref,event=branch,suffix=-{{sha}}-{{date 'YYMMDDHHmmss' tz='Asia/Dubai'}}
             type=ref,event=tag
-            type=sha,prefix=git-
+            type=ref,event=pr,suffix=-{{sha}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
           flavor: |
@@ -72,10 +74,8 @@ jobs:
           context: .
           push: true
           platforms: ${{ matrix.platform }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.FULL_IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Export digest
         run: |
@@ -274,7 +274,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
-            type=sha,prefix=git-
+            type=ref,event=pr,suffix=-{{sha}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
           flavor: |
