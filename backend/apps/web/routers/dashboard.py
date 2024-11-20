@@ -1,13 +1,14 @@
 import math
 import json
 from itertools import chain
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from typing import List, Optional
+from utils.utils import get_admin_user
 from playhouse.shortcuts import model_to_dict
 import logging
 
 from apps.web.models.dashboard import ChatResponse, ChatsTableResponse
-from apps.web.models.users import Users, UserModel
+from apps.web.models.users import Users
 from apps.web.models.chats import Chat, ChatModel
 from apps.web.models.auths import UserResponse
 
@@ -23,8 +24,11 @@ router = APIRouter()
 ############################
 
 @router.post("/chats", response_model=ChatsTableResponse)
-async def get_chats(chat_filter: Optional[ChatResponse] = None):
-    log.info(f"chat_filter: {chat_filter}")
+async def get_chats(chat_filter: Optional[ChatResponse] = None, user=Depends(get_admin_user)):
+    """
+    Get the chats based on the chat_filter
+    """
+    log.info(f"chat_filter: {chat_filter}. user: {user}")
     conditions = Chat.select()
 
     page_from = 1
@@ -75,6 +79,9 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None):
     return remove_none_values(chatTableResponse)
 
 def split_chat_message(chat_model: ChatModel) -> List[dict]:
+    """
+    Split the chat message into question and answer pairs
+    """
     chat_json = json.loads(chat_model.chat)
     chat_history = chat_json.get("history", {}).get("messages", {})
     qa_pairs = []
@@ -97,6 +104,9 @@ def split_chat_message(chat_model: ChatModel) -> List[dict]:
     return qa_pairs
 
 def filter_chat_message(chat_response: ChatResponse, chat_filter: Optional[ChatResponse] = None) -> bool:
+    """
+    Filter the chat message based on the chat_filter
+    """
     is_match = True
     if chat_filter.message:
         if chat_filter.message not in chat_response.message:
@@ -116,6 +126,9 @@ def filter_chat_message(chat_response: ChatResponse, chat_filter: Optional[ChatR
     return is_match
 
 def convert(chat_model: ChatModel, chat_filter: Optional[ChatResponse] = None) -> List[ChatResponse]:
+    """
+    Convert the chat model to chat response
+    """
     userModel = Users.get_user_by_id(id=chat_model.user_id)
     user = UserResponse(
         id=userModel.id, 
@@ -143,15 +156,16 @@ def convert(chat_model: ChatModel, chat_filter: Optional[ChatResponse] = None) -
             created_at=chat_model.created_at, 
             updated_at=chat_model.updated_at, 
             page_number=0, 
-            page_size=0, 
-            total_pages=0, 
-            total_chats=0
+            page_size=0
         )
         if filter_chat_message(chat_response, chat_filter):
             chat_responses.append(chat_response)
     return chat_responses
 
 def remove_none_values(data):
+    """
+    Remove none values from the data
+    """
     if isinstance(data, dict):
         return {k: remove_none_values(v) for k, v in data.items() if v is not None}
     elif isinstance(data, list):

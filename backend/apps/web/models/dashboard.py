@@ -26,23 +26,27 @@ from apps.web.models.auths import (
 ####################
 
 class ChatResponse(BaseModel):
-    id: str
-    user: UserResponse
-    title: str
-    message: str
-    response: str
-    rating: int
-    rating_reason: str
-    rating_comment: str
-    view_chat: bool
-    created_at: int
-    updated_at: int
+    """
+    Chat response model
+    """
+    id: Optional[str] = None
+    user: Optional[UserResponse] = None
+    title: Optional[str] = None
+    message: Optional[str] = None
+    response: Optional[str] = None
+    rating: Optional[int] = None
+    rating_reason: Optional[str] = None
+    rating_comment: Optional[str] = None
+    view_chat: Optional[bool] = None
+    created_at: Optional[int] = None
+    updated_at: Optional[int] = None
     page_number: int
     page_size: int
-    total_pages: int
-    total_chats: int
 
 class ChatsTableResponse(BaseModel):
+    """
+    Chats table response model
+    """
     chats: List[ChatResponse]
     page_number: int
     page_size: int

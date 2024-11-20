@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Union, Optional
+from typing import List, Optional
 from peewee import *
 from playhouse.shortcuts import model_to_dict
 
@@ -322,49 +322,3 @@ class ChatTable:
 
 
 Chats = ChatTable(DB)
-
-
-from peewee import fn, SQL
-
-class TestChatTable:
-    def __init__(self):
-        self.chat_table = Chats
-
-    def main(self):
-    # id: str
-    # user: UserResponse
-    # title: str
-    # message: dict
-    # response: dict
-    # rating: int
-    # rating_reason: str
-    # rating_comment: str
-    # view_chat: bool
-    # created_at: int
-    # updated_at: int
-        condistions = Chat.select()
-        # condistions = condistions.where(Chat.id.contains("75cdebff-7021-40d4-a9cd-bb6ae71c2eba"))
-        # condistions = condistions.where(Chat.title.contains("HR"))
-        # condistions = condistions.where(Chat.user_id.contains("84571bc3-7cde-4ef8-8ca0-1c56e39c3679"))
-        # condistions = condistions.where(fn.json_extract(Chat.chat, '$.messages[0].content').contains("HR"))
-        # condistions = condistions.where(Chat.chat.contains("HR"))
-        # condistions = condistions.where(Chat.chat.contains('rating'))
-        # condistions = condistions.where(Chat.chat.contains('rating_reason'))
-        # condistions = condistions.where(Chat.chat.contains('rating_comment'))
-        condistions = condistions.order_by(Chat.updated_at.desc())
-        condistions = condistions.limit(2)
-        condistions = condistions.offset(1)
-        
-        
-        # 使用 SQLite 的 JSON 函数来查询 JSON 字段
-        query = (condistions)
-                 
-
-        # 执行查询并打印结果
-        chats = [ChatModel(**model_to_dict(chat)) for chat in query]
-        print(f"len:{len(chats)}")
-        # print(f'chats:{chats}')
-
-if __name__ == "__main__":
-    test_chat_table = TestChatTable()
-    test_chat_table.main()
