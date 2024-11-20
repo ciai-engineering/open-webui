@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Union, Optional
+from typing import List, Optional
 from peewee import *
 from playhouse.shortcuts import model_to_dict
 
@@ -268,6 +268,12 @@ class ChatTable:
             .where(Chat.user_id == user_id)
             .order_by(Chat.updated_at.desc())
             # .limit(limit).offset(skip)
+        ]
+
+    def get_chats_by_filter(self, conditions) -> List[ChatModel]:
+        return [
+            ChatModel(**model_to_dict(chat))
+            for chat in Chat.select().where(conditions)
         ]
 
     def delete_chat_by_id(self, id: str) -> bool:
