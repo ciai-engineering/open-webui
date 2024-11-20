@@ -1,36 +1,24 @@
 from pydantic import BaseModel
-from typing import List, Union, Optional
-from peewee import *
-from playhouse.shortcuts import model_to_dict
+from typing import List, Optional
 
-import json
-import uuid
-import time
-
-from apps.web.internal.db import DB
-
-from apps.web.models.auths import (
-    SigninForm,
-    SignupForm,
-    AddUserForm,
-    UpdateProfileForm,
-    UpdatePasswordForm,
-    UserResponse,
-    SigninResponse,
-    Auths,
-    ApiKey,
-)
+from apps.web.models.auths import UserResponse
 
 ####################
 # Forms
 ####################
+
+class UserInfo(BaseModel):
+    id: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    role: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """
     Chat response model
     """
     id: Optional[str] = None
-    user: Optional[UserResponse] = None
+    user: Optional[UserInfo] = None
     title: Optional[str] = None
     message: Optional[str] = None
     response: Optional[str] = None

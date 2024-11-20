@@ -7,10 +7,9 @@ from utils.utils import get_admin_user
 from playhouse.shortcuts import model_to_dict
 import logging
 
-from apps.web.models.dashboard import ChatResponse, ChatsTableResponse
+from apps.web.models.dashboard import UserInfo, ChatResponse, ChatsTableResponse
 from apps.web.models.users import Users
 from apps.web.models.chats import Chat, ChatModel
-from apps.web.models.auths import UserResponse
 
 from config import SRC_LOG_LEVELS
 
@@ -29,29 +28,31 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None, user=Depends(get
     Get the chats based on the chat_filter
     """
     log.info(f"chat_filter: {chat_filter}. user: {user}")
-    conditions = Chat.select()
+    conds = Chat.select()
 
     page_from = 1
     page_to = 10
     # Apply filters if chat_filter is provided
     if chat_filter:
         if chat_filter.id:
-            conditions = conditions.where(Chat.id.contains(chat_filter.id))
+            conds = conds.where(Chat.id == chat_filter.id)
+        if chat_filter.user and chat_filter.user.id:
+            conds = conds.where(Chat.user_id == chat_filter.user.id)
         if chat_filter.title:
-            conditions = conditions.where(Chat.title.contains(chat_filter.title))
+            conds = conds.where(Chat.title.contains(chat_filter.title))
         if chat_filter.message:
-            conditions = conditions.where(Chat.chat.contains(chat_filter.message))
+            conds = conds.where(Chat.chat.contains(chat_filter.message))
         if chat_filter.response:
-            conditions = conditions.where(Chat.chat.contains(chat_filter.response))
+            conds = conds.where(Chat.chat.contains(chat_filter.response))
         if chat_filter.rating:
-            conditions = conditions.where(Chat.chat.contains(f'"rating": {chat_filter.rating}'))
+            conds = conds.where(Chat.chat.contains(f'"rating": {chat_filter.rating}'))
         if chat_filter.rating_reason:
-            conditions = conditions.where(Chat.chat.contains(chat_filter.rating_reason))
+            conds = conds.where(Chat.chat.contains(chat_filter.rating_reason))
         if chat_filter.rating_comment:
-            conditions = conditions.where(Chat.chat.contains(chat_filter.rating_comment))
+            conds = conds.where(Chat.chat.contains(chat_filter.rating_comment))
         
         # Order and paginate results
-        conditions = conditions.order_by(Chat.updated_at.desc())
+        conds = conds.order_by(Chat.updated_at.desc())
 
         # conditions = conditions.limit(chat_filter.page_size)
         # conditions = conditions.offset((chat_filter.page_number - 1) * chat_filter.page_size)
@@ -60,7 +61,7 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None, user=Depends(get
         page_to = chat_filter.page_number * chat_filter.page_size
 
     # Convert database models to ChatModel instances
-    chats = [ChatModel(**model_to_dict(chat)) for chat in conditions]
+    chats = [ChatModel(**model_to_dict(chat)) for chat in conds]
     chats = list(chain.from_iterable(convert(chat, chat_filter) for chat in chats))
 
     # Calculate pagination details
@@ -130,13 +131,11 @@ def convert(chat_model: ChatModel, chat_filter: Optional[ChatResponse] = None) -
     Convert the chat model to chat response
     """
     userModel = Users.get_user_by_id(id=chat_model.user_id)
-    user = UserResponse(
+    user = UserInfo(
         id=userModel.id, 
         email=userModel.email, 
         name=userModel.name, 
-        role=userModel.role, 
-        profile_image_url=userModel.profile_image_url, 
-        extra_sso=""
+        role=userModel.role
     )
     title = chat_model.title.replace("\"", "")
     qa_pairs = split_chat_message(chat_model)
