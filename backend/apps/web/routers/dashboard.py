@@ -27,6 +27,8 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None):
     log.info(f"chat_filter: {chat_filter}")
     conditions = Chat.select()
 
+    page_from = 1
+    page_to = 10
     # Apply filters if chat_filter is provided
     if chat_filter:
         if chat_filter.id:
@@ -46,8 +48,12 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None):
         
         # Order and paginate results
         conditions = conditions.order_by(Chat.updated_at.desc())
-        conditions = conditions.limit(chat_filter.page_size)
-        conditions = conditions.offset((chat_filter.page_number - 1) * chat_filter.page_size)
+
+        # conditions = conditions.limit(chat_filter.page_size)
+        # conditions = conditions.offset((chat_filter.page_number - 1) * chat_filter.page_size)
+
+        page_from = (chat_filter.page_number - 1) * chat_filter.page_size
+        page_to = chat_filter.page_number * chat_filter.page_size
 
     # Convert database models to ChatModel instances
     chats = [ChatModel(**model_to_dict(chat)) for chat in conditions]
@@ -59,7 +65,7 @@ async def get_chats(chat_filter: Optional[ChatResponse] = None):
 
     # Create response object
     chatTableResponse = ChatsTableResponse(
-        chats=chats,
+        chats=chats[page_from:page_to],
         page_number=chat_filter.page_number if chat_filter else 1,
         page_size=chat_filter.page_size if chat_filter else 10,
         total_pages=total_pages,
@@ -79,8 +85,8 @@ def split_chat_message(chat_model: ChatModel) -> List[dict]:
             answer = chat_history[answer_id]["content"] if answer_id and answer_id in chat_history else ""
             annotation = chat_history[answer_id].get("annotation", {}) if answer_id and answer_id in chat_history else None
             rating = annotation.get("rating", 0) if annotation else 0
-            rating_reason = annotation.get("rating_reason", "") if annotation else ""
-            rating_comment = annotation.get("rating_comment", "") if annotation else ""
+            rating_reason = annotation.get("reason", "") if annotation else ""
+            rating_comment = annotation.get("comment", "") if annotation else ""
             qa_pairs.append({
                 "question": question,
                 "answer": answer,
