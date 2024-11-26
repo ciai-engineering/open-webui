@@ -108,6 +108,12 @@ spec:
           value: 
           {{- end}}
         # MSSQL Database Configuration
+        - name: SQLITE_WEB_PASSWORD
+          {{- if .Values.hrwebui.sqliteWebPassword}}
+          value: {{ .Values.hrwebui.sqliteWebPassword}}
+          {{- else}}
+          value: janine123!
+          {{- end}}
         tty: true
       imagePullSecrets:
       - name: {{.Values.hrwebui.imagePullSecrets.name}}
