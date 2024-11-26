@@ -74,6 +74,9 @@ ENV MSSQL_SERVER="" \
     MSSQL_DATABASE="" \
     MSSQL_VIEW=""
 
+# Use to connect with SQLite Web
+ENV SQLITE_WEB_PASSWORD=""
+
 #### Other models #########################################################
 ## whisper TTS model settings ##
 ENV WHISPER_MODEL="base" \
@@ -146,7 +149,7 @@ RUN cat /etc/odbc.ini
 # install python dependencies
 COPY ./backend/requirements.txt ./requirements.txt
 
-RUN pip3 install uv && \
+RUN pip3 install uv sqlite-web && \
     if [ "$USE_CUDA" = "true" ]; then \
         # If you use CUDA the whisper and embedding model will be downloaded on first use
         pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$USE_CUDA_DOCKER_VER --no-cache-dir && \
@@ -175,5 +178,6 @@ COPY --from=build /app/package.json /app/package.json
 COPY ./backend .
 
 EXPOSE 8080
+EXPOSE 8081
 
 CMD [ "bash", "start.sh"]

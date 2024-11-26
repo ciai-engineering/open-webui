@@ -32,4 +32,7 @@ fi
 
 # Add the parent directory to the Python path
 export PYTHONPATH=$PYTHONPATH:$(pwd)/..
-WEBUI_SECRET_KEY="$WEBUI_SECRET_KEY" exec uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
+export SQLITE_WEB_PASSWORD="janine123!"
+WEBUI_SECRET_KEY="$WEBUI_SECRET_KEY" \
+nohup sqlite_web $(pwd)/data/webui.db -H 0.0.0.0 -p 8081 -x -P -l sqlite_web.log > /dev/null 2>&1 & \
+uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*'
