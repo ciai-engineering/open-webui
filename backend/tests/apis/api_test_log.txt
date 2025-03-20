@@ -1,0 +1,105 @@
+===== 开始测试 Thu Mar 20 11:50:58 +04 2025 =====
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0 -- /opt/homebrew/anaconda3/envs/rag/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/apis
+plugins: anyio-4.0.0
+collecting ... 2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - GLOBAL_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - AUDIO_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - COMFYUI_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - CONFIG_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - DB_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - IMAGES_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - LITELLM_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - MAIN_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - MODELS_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - OLLAMA_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - OPENAI_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - RAG_LOG_LEVEL: INFO
+2025-03-20 11:51:01,706 - INFO - 8528595008 - config - <module> - WEBHOOK_LOG_LEVEL: INFO
+2025-03-20 11:51:01,712 - WARNING - 8528595008 - root - <module> - Frontend favicon not found at ../build/favicon.ico
+2025-03-20 11:51:01,713 - INFO - 8528595008 - config - <module> - Embedding model set: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 11:51:01,953 - INFO - 8528595008 - config - <module> - Azure AD Authentication set. CLIENT_ID: "2b0e50f6-6937-4a32-9501-94bf7357e883"; CLIENT_SECRET: "******"; TENANT: "c93272d3-1b07-4b3d-a3b6-19b34a973915"; REDIRECT_URI: "http://localhost:8080/api/v1/auths/signin/callback"
+2025-03-20 11:51:01,953 - INFO - 8528595008 - config - <module> - HR_EMAIL: None
+2025-03-20 11:51:01,953 - INFO - 8528595008 - config - <module> - Microsoft SQL Server Database set. MSSQL_SERVER: "10.127.129.4"; MSSQL_USER: "ciai_rag"; MSSQL_PASSWORD: "******"; MSSQL_DATABASE: "ADERP"; MSSQL_VIEW: "EMPLOYEE_INFO_V"
+2025-03-20 11:51:01,953 - INFO - 8528595008 - apps.web.internal.db - <module> - Connected to a SqliteDatabase database.
+2025-03-20 11:51:01,953 - INFO - 8528595008 - apps.web.internal.db - run - Starting migrations
+2025-03-20 11:51:01,954 - INFO - 8528595008 - apps.web.internal.db - run - There is nothing to migrate
+2025-03-20 11:51:02,156 - INFO - 8528595008 - apps.web.internal.db - <module> - Creating a connection to the MSSQL database.
+2025-03-20 11:51:02,203 - INFO - 8528595008 - apps.web.internal.db - <module> - Connected to the MSSQL database.
+2025-03-20 11:51:02,358 - INFO - 8528595008 - root - <module> - Init MicrosoftSSO
+collected 7 items
+
+test_api_endpoints.py::TestSSOLogin::test_signin_callback 2025-03-20 11:51:03,227 - INFO - 12985593856 - root - signin_callback - Request query params: Headers({'host': 'testserver', 'accept': '*/*', 'accept-encoding': 'gzip, deflate', 'connection': 'keep-alive', 'user-agent': 'testclient'})
+2025-03-20 11:51:03,227 - ERROR - 12985593856 - root - signin_callback - Error in signin_callback: 400: 'code' parameter was not found in callback request
+Traceback (most recent call last):
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/apps/web/routers/auths.py", line 412, in signin_callback
+    sso_user = await retry_operation(lambda: get_sso_user(request))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/apps/web/routers/auths.py", line 438, in retry_operation
+    return await operation()
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/apps/web/routers/auths.py", line 454, in get_sso_user
+    return await retry_operation(operation)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/apps/web/routers/auths.py", line 438, in retry_operation
+    return await operation()
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/apps/web/routers/auths.py", line 450, in operation
+    sso_user = await sso.verify_and_process(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/fastapi_sso/sso/base.py", line 280, in verify_and_process
+    raise SSOLoginError(400, "'code' parameter was not found in callback request")
+fastapi_sso.sso.base.SSOLoginError: 400: 'code' parameter was not found in callback request
+2025-03-20 11:51:03,231 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: GET http://testserver/auths/signin/callback "HTTP/1.1 500 Internal Server Error"
+2025-03-20 11:51:03,231 - INFO - 8528595008 - test_api_endpoints - test_signin_callback - SSO登录回调响应: 500
+PASSED
+test_api_endpoints.py::TestSSOLogin::test_sso_login_init 2025-03-20 11:51:03,233 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: GET http://testserver/auths/signin/init "HTTP/1.1 404 Not Found"
+2025-03-20 11:51:03,234 - INFO - 8528595008 - test_api_endpoints - test_sso_login_init - SSO登录初始化响应: 404
+PASSED
+test_api_endpoints.py::TestMailServices::test_leave_form_submission 2025-03-20 11:51:03,236 - INFO - 12985593856 - root - safe_log - 收到休假申请表单: {"name": "\u6d4b\u8bd5\u7528\u6237", "from": "2023-05-01", "to": "2023-05-10"}
+2025-03-20 11:51:03,236 - INFO - 12985593856 - root - safe_log - SSO令牌状态: {"has_access_token": true, "has_refresh_token": true}
+2025-03-20 11:51:03,236 - INFO - 12985593856 - root - safe_log - 初始化Graph客户端
+2025-03-20 11:51:03,269 - WARNING - 12985593856 - root - safe_log - HR_EMAIL未设置，将使用用户自己的邮箱: {"email": "test@example.com"}
+2025-03-20 11:51:03,269 - INFO - 12985593856 - root - safe_log - 准备发送邮件: {"recipient": "test@example.com", "subject": "Leave of Absence Request - \u6d4b\u8bd5\u7528\u6237"}
+2025-03-20 11:51:03,288 - WARNING - 12985593856 - root - safe_log - 令牌验证失败: AttributeError - 'BaseRequestConfiguration' object has no attribute 'query_parameters'
+2025-03-20 11:51:03,288 - INFO - 12985593856 - root - safe_log - 当前令牌无效，尝试刷新
+2025-03-20 11:51:03,861 - ERROR - 12985593856 - root - safe_log - 令牌刷新失败: {"status": 400}
+2025-03-20 11:51:03,862 - ERROR - 12985593856 - root - safe_log - 无法获取有效令牌
+2025-03-20 11:51:03,862 - ERROR - 12985593856 - root - safe_log - 发送邮件时发生未知错误: TypeError - PermissionError() takes no keyword arguments
+2025-03-20 11:51:03,863 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: POST http://testserver/services/leave "HTTP/1.1 500 Internal Server Error"
+2025-03-20 11:51:03,863 - INFO - 8528595008 - test_api_endpoints - test_leave_form_submission - 休假申请表单响应: 500
+PASSED
+test_api_endpoints.py::TestMailServices::test_hr_document_request 2025-03-20 11:51:03,866 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: POST http://testserver/services/hr-document "HTTP/1.1 422 Unprocessable Entity"
+2025-03-20 11:51:03,866 - INFO - 8528595008 - test_api_endpoints - test_hr_document_request - HR文档请求响应: 422
+PASSED
+test_api_endpoints.py::TestUserAuth::test_signup 2025-03-20 11:51:04,127 - INFO - 12985593856 - apps.web.models.auths - insert_new_auth - insert_new_auth
+2025-03-20 11:51:04,998 - ERROR - 12985593856 - utils.webhook - post_webhook - 403 Client Error: Forbidden for url: http://example.com/
+Traceback (most recent call last):
+  File "/Users/hao.qinghao/VSCodeProjects/open-webui/backend/utils/webhook.py", line 49, in post_webhook
+    r.raise_for_status()
+  File "/opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/requests/models.py", line 1021, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: http://example.com/
+2025-03-20 11:51:05,003 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: POST http://testserver/auths/signup "HTTP/1.1 200 OK"
+2025-03-20 11:51:05,003 - INFO - 8528595008 - test_api_endpoints - test_signup - 用户注册响应: 200
+PASSED
+test_api_endpoints.py::TestUserAuth::test_login 2025-03-20 11:51:05,005 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: POST http://testserver/auths/token "HTTP/1.1 404 Not Found"
+2025-03-20 11:51:05,005 - INFO - 8528595008 - test_api_endpoints - test_login - 用户登录响应: 404
+PASSED
+test_api_endpoints.py::TestUserAuth::test_refresh_token 2025-03-20 11:51:05,007 - INFO - 8528595008 - httpx - _send_single_request - HTTP Request: POST http://testserver/auths/refresh "HTTP/1.1 404 Not Found"
+2025-03-20 11:51:05,007 - INFO - 8528595008 - test_api_endpoints - test_refresh_token - 刷新令牌响应: 404
+PASSED
+
+=============================== warnings summary ===============================
+../../../../../../../opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/passlib/utils/__init__.py:854
+  /opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
+    from crypt import crypt as _crypt
+
+../../../../../../../opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/httpx/_client.py:690
+  /opt/homebrew/anaconda3/envs/rag/lib/python3.11/site-packages/httpx/_client.py:690: DeprecationWarning: The 'app' shortcut is now deprecated. Use the explicit style 'transport=WSGITransport(app=...)' instead.
+    warnings.warn(message, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 7 passed, 2 warnings in 6.09s =========================
+===== 测试通过 Thu Mar 20 11:51:05 +04 2025 =====
