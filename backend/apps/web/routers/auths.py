@@ -3,6 +3,8 @@ import re
 import uuid
 import json
 import asyncio
+import time
+import aiohttp
 
 from fastapi import Request, Depends, HTTPException, status, APIRouter
 from fastapi.responses import RedirectResponse
@@ -10,6 +12,7 @@ from fastapi_sso.sso.microsoft import MicrosoftSSO
 from pydantic import BaseModel
 
 from utils.avatar import generate_avatar
+from utils.security import safe_log, mask_sensitive_data
 from apps.web.exceptions.exception import IllegalAccountException
 import httpcore
 import httpx
@@ -386,7 +389,7 @@ sso = MicrosoftSSO(
     tenant=TENANT,
     redirect_uri=REDIRECT_URI,
     allow_insecure_http=True,
-    scope=["User.Read", "Directory.Read.All", "User.ReadBasic.All", "Mail.Read", "Mail.Send"],
+    scope=["User.Read", "Directory.Read.All", "User.ReadBasic.All", "Mail.Read", "Mail.Send", "offline_access"],
 )
 
 @router.get("/signin/sso", response_model=SigninResponse)
@@ -398,6 +401,9 @@ async def signin_with_sso():
 
 
 ACCESS_TOKEN = "access_token"
+REFRESH_TOKEN = "refresh_token"
+EXPIRES_AT = "expires_at"
+
 @router.get("/signin/callback", response_model=SigninResponse)
 async def signin_callback(request: Request):
     """Verify login"""
@@ -450,18 +456,46 @@ async def get_sso_user(request: Request):
 async def get_staff_dict(sso_user):
     """Get staff information dictionary"""
     sso_user_email = sso_user.email.lower()
-    logging.info(f"sso_user_email: {sso_user_email}")
+    safe_log(logging.info, f"获取用户信息", {"email": sso_user_email})
     staff_dict = Staffs.get_staff_by_email(sso_user_email)
     if staff_dict is None:
         raise IllegalAccountException(f"No staff record found for email: {sso_user_email}")
     if not isinstance(staff_dict, dict):
         raise TypeError(f"Expected dict, got {type(staff_dict)} for staff_dict")
+    
+    # 获取令牌和过期时间
     staff_dict[ACCESS_TOKEN] = sso.access_token
+    
+    # 获取刷新令牌并存储
+    auth_code = request.query_params.get("code", "")
+    if auth_code:
+        try:
+            # 使用授权码获取刷新令牌
+            token_url = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
+            token_data = {
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "code": auth_code,
+                "redirect_uri": REDIRECT_URI,
+                "grant_type": "authorization_code",
+                "scope": "User.Read Directory.Read.All User.ReadBasic.All Mail.Read Mail.Send offline_access"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(token_url, data=token_data) as response:
+                    if response.status == 200:
+                        token_response = await response.json()
+                        staff_dict[REFRESH_TOKEN] = token_response.get("refresh_token", "")
+                        staff_dict[EXPIRES_AT] = time.time() + token_response.get("expires_in", 3600)
+                        safe_log(logging.info, "成功获取并存储刷新令牌")
+                    else:
+                        error_text = await response.text()
+                        safe_log(logging.error, "获取刷新令牌失败", {"status": response.status})
+        except Exception as e:
+            safe_log(logging.error, "获取刷新令牌时出错", exception=e)
 
-    # Hide access token
-    staff_dict_hidden_token = {key: ("******" if key == ACCESS_TOKEN else value) for key, value in staff_dict.items()}
-    staff_dict_json_hidden_token = json.dumps(staff_dict_hidden_token)
-    logging.info(f"Got staff info from MSSQL by email where email is {sso_user_email}. Staff info is {staff_dict_json_hidden_token}")
+    # 安全记录用户信息（不含敏感数据）
+    safe_log(logging.info, f"从MSSQL获取到{sso_user_email}的员工信息", mask_sensitive_data(staff_dict))
 
     return json.dumps(staff_dict)
 

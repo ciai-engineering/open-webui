@@ -83,3 +83,5 @@ class ERROR_MESSAGES(str, Enum):
     ILIGAL_PARAM = "Oops! Something went wrong. Illegal parameters."
 
     INVALID_PARAM = "Oops! Something went wrong. Invalid parameters."
+    
+    TOKEN_EXPIRED = "您的登录令牌已过期，无法执行此操作。请重新登录后再试。"

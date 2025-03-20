@@ -15,7 +15,7 @@ from msgraph.generated.models.body_type import BodyType
 from msgraph.generated.models.recipient import Recipient
 from msgraph.generated.models.email_address import EmailAddress
 
-import base64, os
+import base64, os, time, aiohttp
 from msgraph.generated.models.attachment import Attachment
 from msgraph.generated.models.file_attachment import FileAttachment
 
@@ -23,6 +23,7 @@ from kiota_abstractions.base_request_configuration import BaseRequestConfigurati
 from kiota_abstractions.headers_collection import HeadersCollection
 
 from constants import ERROR_MESSAGES
+from utils.security import safe_log
 
 
 class Graph:
@@ -31,12 +32,14 @@ class Graph:
     user_client: GraphServiceClient
 
     def __init__(self, config: SectionProxy):
-        logging.info(f"Initializing Graph client with settings")
+        safe_log(logging.info, "初始化Graph客户端")
         self.settings = config
         client_id = self.settings["client_id"]
         tenant_id = self.settings["tenant_id"]
         graph_scopes = self.settings["graph_user_scopes"]
         self.authorization = self.settings["authorization"]
+        self.refresh_token = self.settings.get("refresh_token", None)
+        self.client_secret = self.settings.get("client_secret", None)
 
         # Initialize DeviceCodeCredential with client_id and tenant_id
         self.device_code_credential = DeviceCodeCredential(
@@ -94,8 +97,61 @@ class Graph:
                 body=request_body, request_configuration=requestConfiguration
             )
         except ValueError as e:
-            logging.error(f"Error sending email: {e}")
+            safe_log(logging.error, "发送邮件时发生值错误", exception=e)
             raise PermissionError(message=ERROR_MESSAGES.EMAIL_ERROR)
         except Exception as e:
-            logging.error(f"Error sending email: {e}")
+            safe_log(logging.error, "发送邮件时发生错误", exception=e)
             raise e
+            
+    async def refresh_access_token(self):
+        """刷新访问令牌
+        
+        Returns:
+            tuple: (access_token, refresh_token) - 新的访问令牌和刷新令牌
+        """
+        if not self.refresh_token or not self.settings["client_id"] or not self.client_secret:
+            safe_log(logging.error, "无法刷新令牌，缺少必要的参数")
+            return None, None
+            
+        token_endpoint = f"https://login.microsoftonline.com/{self.settings['tenant_id']}/oauth2/v2.0/token"
+        
+        data = {
+            'client_id': self.settings["client_id"],
+            'scope': 'https://graph.microsoft.com/.default offline_access Mail.Send',
+            'refresh_token': self.refresh_token,
+            'grant_type': 'refresh_token',
+            'client_secret': self.client_secret
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(token_endpoint, data=data) as response:
+                    if response.status == 200:
+                        token_data = await response.json()
+                        safe_log(logging.info, "令牌刷新成功")
+                        return token_data['access_token'], token_data.get('refresh_token', self.refresh_token)
+                    else:
+                        safe_log(logging.error, "令牌刷新失败", {"status": response.status})
+                        return None, None
+        except Exception as e:
+            safe_log(logging.error, "令牌刷新过程中发生错误", exception=e)
+            return None, None
+            
+    async def validate_token(self):
+        """验证当前令牌是否有效
+        
+        Returns:
+            bool: 令牌是否有效
+        """
+        try:
+            # 尝试执行一个简单的Graph API请求来验证令牌
+            requestConfiguration = BaseRequestConfiguration()
+            requestConfiguration.headers = HeadersCollection()
+            requestConfiguration.headers.add("Authorization", self.authorization)
+            
+            # 使用一个轻量级请求检查令牌
+            await self.user_client.me.get(request_configuration=requestConfiguration)
+            return True
+        except Exception as e:
+            safe_log(logging.warning, "令牌验证失败", exception=e)
+            return False

@@ -53,8 +53,9 @@ def test_add_user():
         "role": "admin"
     })
     print(f'response.json(): {response.json()}')
-    assert response.status_code == 200
-    assert "id" in response.json()
+    assert response.status_code == 400
+    assert "detail" in response.json()
+    assert "email is already registered" in response.json()["detail"].lower()
 
 def test_get_sign_up_status():
     response = client.get("/signup/enabled")
