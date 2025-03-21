@@ -407,10 +407,17 @@ EXPIRES_AT = "expires_at"
 @router.get("/signin/callback", response_model=SigninResponse)
 async def signin_callback(request: Request):
     """Verify login"""
-    logging.info(f"Request query params: {request.headers}")
     try:
+        # 记录请求参数（安全地遮盖敏感信息）
+        safe_log(logging.info, "Request query params", request.headers)
+        
+        # 获取SSO用户
         sso_user = await retry_operation(lambda: get_sso_user(request))
-        staff_dict = await retry_operation(lambda: get_staff_dict(sso_user))
+        
+        # 获取员工信息
+        staff_dict = await retry_operation(lambda: get_staff_dict(sso_user, request))
+        
+        # 获取用户
         user = await retry_operation(lambda: get_or_create_user(request, sso_user, staff_dict))
         token = create_token(data={"id": user.id}, expires_delta=parse_duration(request.app.state.JWT_EXPIRES_IN))
 
@@ -453,51 +460,60 @@ async def get_sso_user(request: Request):
 
     return await retry_operation(operation)
 
-async def get_staff_dict(sso_user):
-    """Get staff information dictionary"""
-    sso_user_email = sso_user.email.lower()
-    safe_log(logging.info, f"获取用户信息", {"email": sso_user_email})
-    staff_dict = Staffs.get_staff_by_email(sso_user_email)
-    if staff_dict is None:
-        raise IllegalAccountException(f"No staff record found for email: {sso_user_email}")
-    if not isinstance(staff_dict, dict):
-        raise TypeError(f"Expected dict, got {type(staff_dict)} for staff_dict")
-    
-    # 获取令牌和过期时间
-    staff_dict[ACCESS_TOKEN] = sso.access_token
-    
-    # 获取刷新令牌并存储
-    auth_code = request.query_params.get("code", "")
-    if auth_code:
-        try:
-            # 使用授权码获取刷新令牌
-            token_url = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
-            token_data = {
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "code": auth_code,
-                "redirect_uri": REDIRECT_URI,
-                "grant_type": "authorization_code",
-                "scope": "User.Read Directory.Read.All User.ReadBasic.All Mail.Read Mail.Send offline_access"
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(token_url, data=token_data) as response:
-                    if response.status == 200:
-                        token_response = await response.json()
-                        staff_dict[REFRESH_TOKEN] = token_response.get("refresh_token", "")
-                        staff_dict[EXPIRES_AT] = time.time() + token_response.get("expires_in", 3600)
-                        safe_log(logging.info, "成功获取并存储刷新令牌")
-                    else:
-                        error_text = await response.text()
-                        safe_log(logging.error, "获取刷新令牌失败", {"status": response.status})
-        except Exception as e:
-            safe_log(logging.error, "获取刷新令牌时出错", exception=e)
+async def get_staff_dict(sso_user, request: Request = None):
+    """获取员工信息"""
+    try:
+        # 如果提供了request，可以获取auth_code
+        auth_code = ""
+        if request:
+            auth_code = request.query_params.get("code", "")
+        
+        # 从SSO用户获取电子邮件
+        email = sso_user.email.lower()
+        safe_log(logging.info, f"获取用户信息", {"email": email})
+        staff_dict = Staffs.get_staff_by_email(email)
+        if staff_dict is None:
+            raise IllegalAccountException(f"No staff record found for email: {email}")
+        if not isinstance(staff_dict, dict):
+            raise TypeError(f"Expected dict, got {type(staff_dict)} for staff_dict")
+        
+        # 获取令牌和过期时间
+        staff_dict[ACCESS_TOKEN] = sso.access_token
+        
+        # 获取刷新令牌并存储
+        if auth_code:
+            try:
+                # 使用授权码获取刷新令牌
+                token_url = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
+                token_data = {
+                    "client_id": CLIENT_ID,
+                    "client_secret": CLIENT_SECRET,
+                    "code": auth_code,
+                    "redirect_uri": REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                    "scope": "User.Read Directory.Read.All User.ReadBasic.All Mail.Read Mail.Send offline_access"
+                }
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(token_url, data=token_data) as response:
+                        if response.status == 200:
+                            token_response = await response.json()
+                            staff_dict[REFRESH_TOKEN] = token_response.get("refresh_token", "")
+                            staff_dict[EXPIRES_AT] = time.time() + token_response.get("expires_in", 3600)
+                            safe_log(logging.info, "成功获取并存储刷新令牌")
+                        else:
+                            error_text = await response.text()
+                            safe_log(logging.error, "获取刷新令牌失败", {"status": response.status})
+            except Exception as e:
+                safe_log(logging.error, "获取刷新令牌时出错", exception=e)
 
-    # 安全记录用户信息（不含敏感数据）
-    safe_log(logging.info, f"从MSSQL获取到{sso_user_email}的员工信息", mask_sensitive_data(staff_dict))
+        # 安全记录用户信息（不含敏感数据）
+        safe_log(logging.info, f"从MSSQL获取到{email}的员工信息", mask_sensitive_data(staff_dict))
 
-    return json.dumps(staff_dict)
+        return json.dumps(staff_dict)
+    except Exception as e:
+        logging.error(f"Error getting staff_dict: {e}", exc_info=True)
+        raise
 
 async def get_or_create_user(request: Request, sso_user, staff_dict):
     """Get or create user"""
