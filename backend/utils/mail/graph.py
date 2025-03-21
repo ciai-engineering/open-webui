@@ -88,19 +88,22 @@ class Graph:
         request_body = SendMailPostRequestBody()
         request_body.message = message
         request_body.save_to_sent_items = True
-        requestConfiguration: BaseRequestConfiguration = BaseRequestConfiguration()
-        requestConfiguration.headers = HeadersCollection()
-        requestConfiguration.headers.add("Authorization", self.authorization)
+        
         try:
-            # Send the email using the Graph API
+            # 创建请求配置
+            headers = HeadersCollection()
+            headers.add("Authorization", self.authorization)
+            
+            # 发送邮件
             await self.user_client.me.send_mail.post(
-                body=request_body, request_configuration=requestConfiguration
+                body=request_body,
+                request_configuration=BaseRequestConfiguration(headers=headers)
             )
         except ValueError as e:
             safe_log(logging.error, "发送邮件时发生值错误", exception=e)
-            raise PermissionError(message=ERROR_MESSAGES.EMAIL_ERROR)
+            raise PermissionError(ERROR_MESSAGES.EMAIL_ERROR)
         except Exception as e:
-            safe_log(logging.error, "发送邮件时发生错误", exception=e)
+            safe_log(logging.error, "发送邮件时发生未知错误", exception=e)
             raise e
             
     async def refresh_access_token(self):
@@ -144,13 +147,15 @@ class Graph:
             bool: 令牌是否有效
         """
         try:
-            # 尝试执行一个简单的Graph API请求来验证令牌
-            requestConfiguration = BaseRequestConfiguration()
-            requestConfiguration.headers = HeadersCollection()
-            requestConfiguration.headers.add("Authorization", self.authorization)
+            # 创建请求头
+            headers = HeadersCollection()
+            headers.add("Authorization", self.authorization)
+            
+            # 使用配置创建请求
+            request_config = BaseRequestConfiguration(headers=headers)
             
             # 使用一个轻量级请求检查令牌
-            await self.user_client.me.get(request_configuration=requestConfiguration)
+            await self.user_client.me.get(request_configuration=request_config)
             return True
         except Exception as e:
             safe_log(logging.warning, "令牌验证失败", exception=e)

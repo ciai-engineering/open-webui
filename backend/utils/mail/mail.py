@@ -81,7 +81,7 @@ class Mail:
         # 确保令牌有效
         token_valid = await self.ensure_valid_token()
         if not token_valid:
-            raise PermissionError(message="令牌已过期，无法发送邮件。请重新登录。")
+            raise PermissionError("令牌已过期，无法发送邮件。请重新登录。")
             
         # fill the leave form
         template_path = 'utils/mail/leave_template.pdf'
@@ -124,7 +124,7 @@ class Mail:
         # 确保令牌有效
         token_valid = await self.ensure_valid_token()
         if not token_valid:
-            raise PermissionError(message="令牌已过期，无法发送邮件。请重新登录。")
+            raise PermissionError("令牌已过期，无法发送邮件。请重新登录。")
             
         safe_log(logging.info, "发送简单邮件", {"recipient": recipient, "subject": subject})
         await self.graph.send_leave_mail(subject, content, recipient, None, None)

@@ -205,5 +205,98 @@ class TestMailSecurity(unittest.TestCase):
             self.assertTrue(any("发送带附件的邮件" in msg for msg in log_msgs))
             self.assertTrue(any("邮件发送成功" in msg for msg in log_msgs))
 
+    @patch('utils.mail.mail.safe_log')    
+    @patch('utils.mail.mail.Mail.ensure_valid_token')
+    async def test_send_mail_handles_permission_error_correctly(self, mock_ensure_valid_token, mock_safe_log):
+        """测试send_mail方法正确处理令牌失效情况"""
+        # 模拟ensure_valid_token返回False
+        mock_ensure_valid_token.return_value = False
+        
+        # 模拟LeaveForm数据
+        mock_form_data = MagicMock()
+        mock_form_data.name = "Test User"
+        mock_form_data.employee_id = "EMP123"
+        
+        # 发送邮件应该引发PermissionError
+        with self.assertRaises(PermissionError) as context:
+            await self.mail.send_mail(
+                "Test Subject", 
+                "Test Body", 
+                "recipient@example.com", 
+                mock_form_data
+            )
+        
+        # 验证异常消息
+        self.assertTrue("令牌已过期" in str(context.exception))
+        
+        # 确保send_leave_mail没有被调用
+        self.mock_graph.send_leave_mail.assert_not_called()
+    
+    @patch('utils.mail.mail.safe_log')    
+    @patch('utils.mail.mail.Mail.ensure_valid_token')
+    async def test_send_simple_mail_handles_permission_error_correctly(self, mock_ensure_valid_token, mock_safe_log):
+        """测试send_simple_mail方法正确处理令牌失效情况"""
+        # 模拟ensure_valid_token返回False
+        mock_ensure_valid_token.return_value = False
+        
+        # 发送邮件应该引发PermissionError
+        with self.assertRaises(PermissionError) as context:
+            await self.mail.send_simple_mail(
+                "Test Subject", 
+                "Test Content", 
+                "recipient@example.com"
+            )
+        
+        # 验证异常消息
+        self.assertTrue("令牌已过期" in str(context.exception))
+        
+        # 确保send_leave_mail没有被调用
+        self.mock_graph.send_leave_mail.assert_not_called()
+
+    @patch('utils.mail.mail.safe_log')    
+    @patch('utils.mail.mail.Mail.ensure_valid_token')
+    async def test_send_mail_propagates_graph_error(self, mock_ensure_valid_token, mock_safe_log):
+        """测试send_mail方法正确传播Graph API的错误"""
+        # 模拟ensure_valid_token返回True
+        mock_ensure_valid_token.return_value = True
+        
+        # 模拟FillLeaveForm
+        with patch('utils.mail.mail.FillLeaveForm') as mock_fill_form:
+            mock_fill_instance = MagicMock()
+            mock_fill_instance.fill_template.return_value = "test_file_path.pdf"
+            mock_fill_form.return_value = mock_fill_instance
+            
+            # 模拟Graph API抛出异常
+            permission_error = PermissionError("邮件发送权限不足")
+            self.mock_graph.send_leave_mail = AsyncMock(side_effect=permission_error)
+            
+            # 模拟LeaveForm数据
+            mock_form_data = MagicMock()
+            mock_form_data.name = "Test User"
+            mock_form_data.employee_id = "EMP123"
+            mock_form_data.job_title = "Engineer"
+            mock_form_data.dept = "IT"
+            mock_form_data.type_of_leave = "Annual Leave"
+            mock_form_data.remarks = "Vacation"
+            mock_form_data.leavefrom = "01-05-23"
+            mock_form_data.leaveto = "10-05-23"
+            mock_form_data.days = "10"
+            mock_form_data.address = "123 Street"
+            mock_form_data.tele = "123-456-7890"
+            mock_form_data.email = "test@example.com"
+            mock_form_data.date = "01-05-23"
+            
+            # 发送邮件应该传播异常
+            with self.assertRaises(PermissionError) as context:
+                await self.mail.send_mail(
+                    "Test Subject", 
+                    "Test Body", 
+                    "recipient@example.com", 
+                    mock_form_data
+                )
+            
+            # 验证异常是否原样传播
+            self.assertEqual(str(context.exception), "邮件发送权限不足")
+
 if __name__ == '__main__':
     unittest.main() 

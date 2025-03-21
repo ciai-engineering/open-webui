@@ -1,0 +1,7 @@
+{
+  "client_id": "your_client_id",
+  "tenant_id": "your_tenant_id",
+  "client_secret": "your_client_secret",
+  "test_token": "your_test_access_token",
+  "test_refresh_token": "your_test_refresh_token"
+}
