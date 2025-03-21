@@ -72,9 +72,7 @@ class Graph:
         if attachment_path and os.path.isfile(attachment_path):
             with open(attachment_path, "rb") as attachment_file:
                 attachment_content = attachment_file.read()
-                attachment_base64 = base64.urlsafe_b64encode(attachment_content).decode(
-                    "utf-8"
-                )
+                attachment_base64 = base64.b64encode(attachment_content).decode("utf-8")
                 attachment = FileAttachment(
                     odata_type="#microsoft.graph.fileAttachment",
                     name=attachment_name,
@@ -90,15 +88,77 @@ class Graph:
         request_body.save_to_sent_items = True
         
         try:
-            # 创建请求配置
-            headers = HeadersCollection()
-            headers.add("Authorization", self.authorization)
+            # 使用aiohttp直接发送请求到Graph API
+            graph_endpoint = 'https://graph.microsoft.com/v1.0/me/sendMail'
             
-            # 发送邮件
-            await self.user_client.me.send_mail.post(
-                body=request_body,
-                request_configuration=BaseRequestConfiguration(headers=headers)
-            )
+            # 提取令牌值
+            token = self.authorization
+            if token.startswith("Bearer "):
+                token = token[7:]  # 移除"Bearer "前缀
+            
+            # 将Message对象转换为JSON
+            email_data = {
+                "message": {
+                    "subject": subject,
+                    "body": {
+                        "contentType": "Text",
+                        "content": leave_body
+                    },
+                    "toRecipients": [
+                        {
+                            "emailAddress": {
+                                "address": recipient
+                            }
+                        }
+                    ]
+                },
+                "saveToSentItems": "true"
+            }
+            
+            # 如果有附件，添加到请求中
+            if attachment_path and os.path.isfile(attachment_path):
+                with open(attachment_path, "rb") as attachment_file:
+                    attachment_content = attachment_file.read()
+                    attachment_base64 = base64.b64encode(attachment_content).decode("utf-8")
+                
+                email_data["message"]["attachments"] = [
+                    {
+                        "@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": attachment_name,
+                        "contentBytes": attachment_base64,
+                        "contentType": "application/pdf"
+                    }
+                ]
+            
+            # 调试日志
+            if attachment_path and os.path.isfile(attachment_path):
+                safe_log(logging.debug, f"附件大小: {os.path.getsize(attachment_path)} 字节")
+                
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                }
+                
+                async with session.post(graph_endpoint, headers=headers, json=email_data) as response:
+                    if response.status == 202 or response.status == 200:
+                        # 邮件发送成功
+                        return
+                    else:
+                        # 邮件发送失败
+                        error_msg = await response.text()
+                        safe_log(logging.error, f"邮件发送失败，HTTP状态: {response.status}", {"error": error_msg})
+                        
+                        if response.status == 401:
+                            # 授权问题
+                            raise PermissionError(ERROR_MESSAGES.EMAIL_ERROR)
+                        elif response.status == 400:
+                            # 参数问题
+                            raise ValueError(f"邮件参数错误: {error_msg}")
+                        else:
+                            # 其他错误
+                            raise Exception(f"邮件发送错误 (HTTP {response.status}): {error_msg}")
+                            
         except ValueError as e:
             safe_log(logging.error, "发送邮件时发生值错误", exception=e)
             raise PermissionError(ERROR_MESSAGES.EMAIL_ERROR)
@@ -147,16 +207,27 @@ class Graph:
             bool: 令牌是否有效
         """
         try:
-            # 创建请求头
-            headers = HeadersCollection()
-            headers.add("Authorization", self.authorization)
+            # 使用aiohttp直接发送请求到Graph API
+            graph_endpoint = 'https://graph.microsoft.com/v1.0/me'
             
-            # 使用配置创建请求
-            request_config = BaseRequestConfiguration(headers=headers)
-            
-            # 使用一个轻量级请求检查令牌
-            await self.user_client.me.get(request_configuration=request_config)
-            return True
+            # 提取令牌值
+            token = self.authorization
+            if token.startswith("Bearer "):
+                token = token[7:]  # 移除"Bearer "前缀
+                
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                }
+                async with session.get(graph_endpoint, headers=headers) as response:
+                    if response.status == 200:
+                        # 令牌有效
+                        return True
+                    else:
+                        # 令牌无效
+                        safe_log(logging.warning, f"令牌验证失败，HTTP状态: {response.status}")
+                        return False
         except Exception as e:
             safe_log(logging.warning, "令牌验证失败", exception=e)
             return False
