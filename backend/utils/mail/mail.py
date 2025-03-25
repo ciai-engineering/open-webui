@@ -1,6 +1,7 @@
 import logging
 import json
 import time
+from configparser import ConfigParser
 
 from .graph import Graph
 from .fill_form import FillLeaveForm
@@ -11,15 +12,19 @@ from utils.security import safe_log
 class Mail:
     graph: Graph
 
-    def __init__(self, client_id: str, tenant_id: str, authorization: str, refresh_token: str = None, client_secret: str = None, user_id: str = None, graph_user_scopes: list[str] = ["Mail.Send"]):
-        azure_settings={}
-        azure_settings["client_id"] = client_id
-        azure_settings["tenant_id"] = tenant_id
-        azure_settings["graph_user_scopes"] = graph_user_scopes
-        azure_settings["authorization"] = authorization
-        azure_settings["refresh_token"] = refresh_token
-        azure_settings["client_secret"] = client_secret
-        self.graph: Graph = Graph(azure_settings)
+    def __init__(self, client_id: str, tenant_id: str, authorization: str, refresh_token: str = "", client_secret: str = "", user_id: str = "", graph_user_scopes: list[str] = ["Mail.Send"]):
+        # 创建配置解析器
+        config = ConfigParser()
+        config.add_section('graph')
+        config['graph']['client_id'] = client_id
+        config['graph']['tenant_id'] = tenant_id
+        config['graph']['graph_user_scopes'] = ','.join(graph_user_scopes)
+        config['graph']['authorization'] = authorization
+        config['graph']['refresh_token'] = refresh_token
+        config['graph']['client_secret'] = client_secret
+        
+        # 获取graph部分的SectionProxy
+        self.graph: Graph = Graph(config['graph'])
         self.user_id = user_id
 
     async def ensure_valid_token(self):
@@ -43,7 +48,8 @@ class Mail:
                 safe_log(logging.info, "令牌刷新成功，更新授权信息")
                 # 更新当前实例的令牌
                 self.graph.authorization = f"Bearer {access_token}"
-                self.graph.refresh_token = refresh_token
+                if refresh_token:
+                    self.graph.refresh_token = refresh_token
                 
                 # 更新数据库中存储的令牌
                 if self.user_id:
@@ -127,5 +133,5 @@ class Mail:
             raise PermissionError("令牌已过期，无法发送邮件。请重新登录。")
             
         safe_log(logging.info, "发送简单邮件", {"recipient": recipient, "subject": subject})
-        await self.graph.send_leave_mail(subject, content, recipient, None, None)
+        await self.graph.send_leave_mail(subject, content, recipient, "", "")  # 使用空字符串代替None
         safe_log(logging.info, "邮件发送成功")

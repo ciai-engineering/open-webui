@@ -4,12 +4,14 @@ import json
 import sys
 import os
 from unittest.mock import patch, MagicMock, AsyncMock
+from configparser import ConfigParser
 
 # 添加项目根目录到sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
 
 from utils.mail.mail import Mail
 from utils.security import safe_log
+from utils.mail.graph import Graph
 
 class TestMailSecurity(unittest.TestCase):
     def setUp(self):
@@ -40,15 +42,27 @@ class TestMailSecurity(unittest.TestCase):
         self.access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
         self.refresh_token = "refresh_123456789"
         self.client_secret = "client_secret_123"
-        self.user_id = "user_123"
+        self.user_id = "test_user_id"
         
-        # 使用patch创建虚拟Graph类
-        self.graph_patch = patch('utils.mail.mail.Graph')
-        self.mock_graph_class = self.graph_patch.start()
-        self.mock_graph = MagicMock()
-        self.mock_graph_class.return_value = self.mock_graph
+        # 创建配置解析器
+        config = ConfigParser()
+        config.add_section('graph')
+        config['graph']['client_id'] = self.client_id
+        config['graph']['tenant_id'] = self.tenant_id
+        config['graph']['graph_user_scopes'] = 'Mail.Send'
+        config['graph']['authorization'] = f"Bearer {self.access_token}"
+        config['graph']['refresh_token'] = self.refresh_token
+        config['graph']['client_secret'] = self.client_secret
         
-        # 创建测试对象
+        # 获取graph部分的SectionProxy
+        self.settings = config['graph']
+        
+        # 创建Graph实例
+        self.mock_graph = MagicMock(spec=Graph)
+        self.mock_graph.authorization = f"Bearer {self.access_token}"
+        self.mock_graph.refresh_token = self.refresh_token
+        
+        # 创建Mail实例
         self.mail = Mail(
             client_id=self.client_id,
             tenant_id=self.tenant_id,
@@ -57,10 +71,14 @@ class TestMailSecurity(unittest.TestCase):
             client_secret=self.client_secret,
             user_id=self.user_id
         )
+        self.mail.graph = self.mock_graph
     
     def tearDown(self):
-        # 停止所有patch
-        self.graph_patch.stop()
+        """清理测试环境"""
+        # 移除日志处理器
+        self.test_logger.removeHandler(self.log_handler)
+        # 清空日志记录
+        self.log_records.clear()
     
     @patch('utils.mail.mail.safe_log')
     async def test_ensure_valid_token_logs_securely_when_valid(self, mock_safe_log):
@@ -297,6 +315,48 @@ class TestMailSecurity(unittest.TestCase):
             
             # 验证异常是否原样传播
             self.assertEqual(str(context.exception), "邮件发送权限不足")
+
+    @patch('utils.mail.mail.safe_log')    
+    @patch('utils.mail.mail.Mail.ensure_valid_token')
+    async def test_send_simple_mail_logs_securely(self, mock_ensure_valid_token, mock_safe_log):
+        """测试send_simple_mail方法的日志记录安全性"""
+        # 模拟ensure_valid_token返回True
+        mock_ensure_valid_token.return_value = True
+        
+        # 模拟发送邮件
+        self.mock_graph.send_leave_mail = AsyncMock()
+        
+        # 发送简单邮件
+        await self.mail.send_simple_mail(
+            "Test Subject", 
+            "Test Content", 
+            "recipient@example.com"
+        )
+        
+        # 验证日志调用
+        mock_safe_log.assert_called()
+        
+        # 验证日志中不包含敏感信息
+        for call in mock_safe_log.call_args_list:
+            args, _ = call
+            log_message = args[0]
+            self.assertNotIn(self.access_token, log_message)
+            self.assertNotIn(self.refresh_token, log_message)
+            self.assertNotIn(self.client_secret, log_message)
+        
+        # 验证日志内容
+        log_msgs = [str(call) for call in mock_safe_log.call_args_list]
+        self.assertTrue(any("发送简单邮件" in msg for msg in log_msgs))
+        self.assertTrue(any("邮件发送成功" in msg for msg in log_msgs))
+        
+        # 验证send_leave_mail的调用
+        self.mock_graph.send_leave_mail.assert_called_once_with(
+            "Test Subject", 
+            "Test Content", 
+            "recipient@example.com",
+            "",  # 空字符串代替None
+            ""   # 空字符串代替None
+        )
 
 if __name__ == '__main__':
     unittest.main() 
