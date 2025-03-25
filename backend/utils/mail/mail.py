@@ -16,16 +16,18 @@ class Mail:
         # 创建配置解析器
         config = ConfigParser()
         config.add_section('graph')
-        config['graph']['client_id'] = client_id
-        config['graph']['tenant_id'] = tenant_id
-        config['graph']['graph_user_scopes'] = ','.join(graph_user_scopes)
-        config['graph']['authorization'] = authorization
-        config['graph']['refresh_token'] = refresh_token
-        config['graph']['client_secret'] = client_secret
+        
+        # 确保所有值都是字符串类型
+        config['graph']['client_id'] = str(client_id)
+        config['graph']['tenant_id'] = str(tenant_id)
+        config['graph']['graph_user_scopes'] = ','.join(str(scope) for scope in graph_user_scopes)
+        config['graph']['authorization'] = str(authorization)
+        config['graph']['refresh_token'] = str(refresh_token)
+        config['graph']['client_secret'] = str(client_secret)
         
         # 获取graph部分的SectionProxy
         self.graph: Graph = Graph(config['graph'])
-        self.user_id = user_id
+        self.user_id = str(user_id)
 
     async def ensure_valid_token(self):
         """确保令牌有效，必要时刷新
