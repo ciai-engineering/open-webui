@@ -270,49 +270,44 @@ class Graph:
         """刷新访问令牌
         
         Returns:
-            tuple: (access_token, refresh_token) - 新的访问令牌和刷新令牌
+            tuple: (access_token, refresh_token) 如果刷新成功，否则返回 (None, None)
         """
         if not self.refresh_token or not self.settings.get("client_id") or not self.client_secret:
-            safe_log(logging.error, "无法刷新令牌，缺少必要的参数")
+            safe_log(logging.error, "缺少刷新令牌所需的参数")
             return None, None
             
-        token_endpoint = f"https://login.microsoftonline.com/{self.settings['tenant_id']}/oauth2/v2.0/token"
-        
-        data = {
-            'client_id': self.settings["client_id"],
-            'scope': 'https://graph.microsoft.com/.default offline_access Mail.Send',
-            'refresh_token': self.refresh_token,
-            'grant_type': 'refresh_token',
-            'client_secret': self.client_secret
-        }
-        
         try:
+            # 构建刷新令牌请求
+            token_url = f"https://login.microsoftonline.com/{self.settings['tenant_id']}/oauth2/v2.0/token"
+            data = {
+                'client_id': self.settings["client_id"],
+                'client_secret': self.client_secret,
+                'refresh_token': self.refresh_token,
+                'grant_type': 'refresh_token',
+                'scope': 'https://graph.microsoft.com/.default offline_access'  # 修改 scope 格式
+            }
+            
             async with aiohttp.ClientSession() as session:
-                async with session.post(url=token_endpoint, data=data) as response:
+                async with session.post(token_url, data=data) as response:
                     if response.status == 200:
-                        try:
-                            token_data = await response.json()
-                            if 'access_token' in token_data:
-                                # 获取新的令牌
-                                new_access_token = token_data['access_token']
-                                new_refresh_token = token_data.get('refresh_token', self.refresh_token)
-                                
-                                # 更新实例的令牌
-                                self.authorization = f"Bearer {new_access_token}"
+                        result = await response.json()
+                        new_access_token = result.get('access_token')
+                        new_refresh_token = result.get('refresh_token')
+                        
+                        if new_access_token:
+                            safe_log(logging.info, "令牌刷新成功")
+                            # 更新当前实例的令牌
+                            self.authorization = f"Bearer {new_access_token}"
+                            if new_refresh_token:
                                 self.refresh_token = new_refresh_token
-                                
-                                safe_log(logging.info, "令牌刷新成功")
-                                return new_access_token, new_refresh_token
-                            else:
-                                safe_log(logging.error, "令牌刷新失败，响应数据格式不正确")
-                                return None, None
-                        except ValueError as e:
-                            safe_log(logging.error, "令牌刷新失败，无法解析JSON响应", exception=e)
-                            return None, None
+                            return new_access_token, new_refresh_token
+                        else:
+                            safe_log(logging.error, "令牌刷新响应中缺少access_token")
                     else:
-                        error_msg = await response.text()
-                        safe_log(logging.error, f"令牌刷新失败，HTTP状态: {response.status}", {"error": error_msg})
-                        return None, None
+                        error_text = await response.text()
+                        safe_log(logging.error, f"令牌刷新失败，HTTP状态: {response.status}: {{'error': {error_text}}}")
+                        
         except Exception as e:
-            safe_log(logging.error, "令牌刷新过程中发生错误", exception=e)
-            return None, None
+            safe_log(logging.error, "刷新令牌时发生错误", exception=e)
+            
+        return None, None
