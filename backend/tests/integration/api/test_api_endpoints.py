@@ -9,23 +9,25 @@ import logging
 from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
+from typing import Dict, Any
 
-# 添加项目根目录到sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+# Add project root directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
-# 配置基本日志
+# Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 模拟数据
+# Mock data
 MOCK_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
 MOCK_REFRESH_TOKEN = "refresh_123456789"
 TEST_EMAIL = "test@example.com"
 TEST_PASSWORD = "TestPassword123!"
-TEST_NAME = "测试用户"
+TEST_NAME = "Test User"
 
-# 尝试导入模块，如果失败则模拟
+# Try to import module, if failed then mock
 try:
+    from backend.apps.user.models import User
     from apps.web.routers.auths import router as auth_router
     from apps.web.routers.auths import ACCESS_TOKEN, REFRESH_TOKEN
     from apps.web.routers.services import router as services_router
@@ -33,9 +35,14 @@ try:
     
     MODULES_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"无法导入模块: {str(e)}")
+    logger.warning(f"Unable to import module: {str(e)}")
     
-    # 创建模拟版本
+    # Create mock version
+    class User:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
     auth_router = MagicMock()
     services_router = MagicMock()
     get_current_user = MagicMock()
@@ -44,47 +51,41 @@ except ImportError as e:
     
     MODULES_AVAILABLE = False
 
-# 创建测试应用
+# Create test application
 app = FastAPI()
 app.include_router(auth_router, prefix="/auths")
 app.include_router(services_router, prefix="/services")
 
-# 测试客户端
+# Test client
 client = TestClient(app)
 
-# 模拟用户数据
-class MockUser:
-    def __init__(self, id="test_id", email=TEST_EMAIL, extra_sso=None, role="user"):
-        self.id = id
-        self.email = email
-        self.role = role
-        self.extra_sso = extra_sso if extra_sso else json.dumps({
-            ACCESS_TOKEN: MOCK_ACCESS_TOKEN,
-            "refresh_token": MOCK_REFRESH_TOKEN
-        })
+# Mock user data
+test_user_data: Dict[str, Any] = {
+    "id": 1,
+    "username": "testuser",
+    "email": "test@example.com",
+    "is_active": True,
+    "is_superuser": False,
+}
 
-# 模拟get_current_user
-def mock_get_current_user():
-    return MockUser()
+# Mock get_current_user
+async def get_current_user():
+    return User(**test_user_data)
 
-# 替换依赖
-app.dependency_overrides[get_current_user] = mock_get_current_user
+# Replace dependency
+app.dependency_overrides[get_current_user] = get_current_user
 
-# 全局异常处理中间件
-@app.middleware("http")
-async def global_exception_handler(request: Request, call_next):
-    try:
-        response = await call_next(request)
-        return response
-    except Exception as e:
-        logger.error(f"请求处理异常: {str(e)}")
-        return Response(
-            content=json.dumps({"detail": "测试中的请求处理异常"}),
-            status_code=500,
-            media_type="application/json"
-        )
+# Global exception handling middleware
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.error(f"Request processing exception: {str(exc)}")
+    return Response(
+        content=json.dumps({"detail": "Request processing exception in test"}),
+        status_code=500,
+        media_type="application/json"
+    )
 
-# 测试夹具：设置应用状态
+# Test fixture: Set up application state
 @pytest.fixture(autouse=True)
 def setup_app_state():
     app.state.ENABLE_SIGNUP = True
@@ -94,170 +95,170 @@ def setup_app_state():
     app.state.HR_EMAIL = "hr@example.com"
     yield
 
-# 辅助函数：检查日志中是否包含敏感信息
+# Helper function: Check if sensitive information is logged
 def check_no_sensitive_info_in_logs(mock_log):
     for call in mock_log.call_args_list:
         args, _ = call
         call_str = str(args)
-        assert MOCK_ACCESS_TOKEN not in call_str, "访问令牌泄露在日志中"
-        assert MOCK_REFRESH_TOKEN not in call_str, "刷新令牌泄露在日志中"
-        assert TEST_PASSWORD not in call_str, "密码泄露在日志中"
+        assert MOCK_ACCESS_TOKEN not in call_str, "Access token leaked in logs"
+        assert MOCK_REFRESH_TOKEN not in call_str, "Refresh token leaked in logs"
+        assert TEST_PASSWORD not in call_str, "Password leaked in logs"
 
-# 测试类：SSO登录相关API
+# Test class: SSO login related APIs
 class TestSSOLogin:
-    """测试SSO登录相关API"""
+    """Test SSO login related APIs"""
     
     @patch('utils.security.safe_log')
     def test_signin_callback(self, mock_safe_log):
-        """测试SSO登录回调接口"""
-        # 调用SSO登录回调API
+        """Test SSO login callback API"""
+        # Call SSO login callback API
         response = client.get("/auths/signin/callback")
         
-        # 记录响应
-        logger.info(f"SSO登录回调响应: {response.status_code}")
+        # Record response
+        logger.info(f"SSO login callback response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 302, 400, 401, 404, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
     
     @patch('utils.security.safe_log')
     def test_sso_login_init(self, mock_safe_log):
-        """测试SSO登录初始化接口"""
-        # 调用SSO登录初始化API
+        """Test SSO login initialization API"""
+        # Call SSO login initialization API
         response = client.get("/auths/signin/init")
         
-        # 记录响应
-        logger.info(f"SSO登录初始化响应: {response.status_code}")
+        # Record response
+        logger.info(f"SSO login initialization response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 302, 404, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
 
-# 测试类：邮件发送相关API
+# Test class: Email sending related APIs
 class TestMailServices:
-    """测试邮件发送相关API"""
+    """Test email sending related APIs"""
     
     @patch('utils.security.safe_log')
     def test_leave_form_submission(self, mock_safe_log):
-        """测试休假申请表单提交"""
-        # 提交休假申请表单
+        """Test leave form submission"""
+        # Submit leave form
         response = client.post("/services/leave", json={
             "name": TEST_NAME,
             "employee_id": "EMP123",
-            "job_title": "工程师",
-            "dept": "IT部门",
-            "type_of_leave": "年假",
-            "remarks": "家庭旅行",
+            "job_title": "Engineer",
+            "dept": "IT Department",
+            "type_of_leave": "Annual Leave",
+            "remarks": "Family Trip",
             "leavefrom": "2023-05-01",
             "leaveto": "2023-05-10",
             "days": "10",
-            "address": "北京市朝阳区",
+            "address": "Chaoyang District, Beijing",
             "tele": "13800138000",
             "email": TEST_EMAIL,
             "date": "2023-04-20"
         })
         
-        # 记录响应
-        logger.info(f"休假申请表单响应: {response.status_code}")
+        # Record response
+        logger.info(f"Leave form submission response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 400, 404, 422, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
     
     @patch('utils.security.safe_log')
     def test_hr_document_request(self, mock_safe_log):
-        """测试HR文档请求"""
-        # 提交HR文档请求
+        """Test HR document request"""
+        # Submit HR document request
         response = client.post("/services/hr-document", json={
             "name": TEST_NAME,
-            "type_of_document": 1,  # 工作证明信
-            "purpose": "租房用途",
-            "addressee": "北京某房产中介",
+            "type_of_document": 1,  # Work Certificate
+            "purpose": "Rental Purpose",
+            "addressee": "Beijing Real Estate Agency",
             "language": "cn"
         })
         
-        # 记录响应
-        logger.info(f"HR文档请求响应: {response.status_code}")
+        # Record response
+        logger.info(f"HR document request response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 400, 404, 422, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
 
-# 测试类：用户认证API
+# Test class: User authentication APIs
 class TestUserAuth:
-    """测试用户认证相关API"""
+    """Test user authentication related APIs"""
     
     @patch('utils.security.safe_log')
     def test_signup(self, mock_safe_log):
-        """测试用户注册API"""
-        # 发送注册请求
+        """Test user registration API"""
+        # Send registration request
         response = client.post("/auths/signup", json={
             "email": "new@example.com",
             "password": TEST_PASSWORD,
-            "name": "新用户",
+            "name": "New User",
             "profile_image_url": "http://example.com/avatar.png",
             "role": "user"
         })
         
-        # 记录响应
-        logger.info(f"用户注册响应: {response.status_code}")
+        # Record response
+        logger.info(f"User registration response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 201, 400, 404, 409, 422, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
     
     @patch('utils.security.safe_log')
     def test_login(self, mock_safe_log):
-        """测试用户登录API"""
-        # 发送登录请求
+        """Test user login API"""
+        # Send login request
         response = client.post("/auths/token", data={
             "username": TEST_EMAIL,
             "password": TEST_PASSWORD
         })
         
-        # 记录响应
-        logger.info(f"用户登录响应: {response.status_code}")
+        # Record response
+        logger.info(f"User login response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 400, 401, 404, 422, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
     
     @patch('utils.security.safe_log')
     def test_refresh_token(self, mock_safe_log):
-        """测试刷新令牌API"""
-        # 发送刷新令牌请求
+        """Test refresh token API"""
+        # Send refresh token request
         response = client.post("/auths/refresh", json={
             "refresh_token": MOCK_REFRESH_TOKEN
         })
         
-        # 记录响应
-        logger.info(f"刷新令牌响应: {response.status_code}")
+        # Record response
+        logger.info(f"Refresh token response: {response.status_code}")
         
-        # 验证响应状态码在可接受范围内
+        # Verify response status code within acceptable range
         assert response.status_code in [200, 400, 401, 404, 422, 500]
         
-        # 如果模块可用且调用了安全日志，验证没有泄露敏感信息
+        # If module is available and called safe_log, verify no sensitive information leaked
         if MODULES_AVAILABLE and mock_safe_log.called:
             check_no_sensitive_info_in_logs(mock_safe_log)
 
-# 主函数
+# Main function
 if __name__ == "__main__":
     pytest.main(["-xvs", "test_api_endpoints.py"]) 

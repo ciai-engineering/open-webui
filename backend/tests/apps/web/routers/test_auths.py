@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import logging
 
-# 忽略 passlib 中的 DeprecationWarning
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.utils")
+# Ignore DeprecationWarning from passlib
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Dynamically add the project root directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../../")))

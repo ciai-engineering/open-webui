@@ -5,8 +5,8 @@ import re
 import sys
 import os
 
-# 添加项目根目录到sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+# Add project root directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from utils.security import mask_sensitive_data, safe_str, safe_log
 

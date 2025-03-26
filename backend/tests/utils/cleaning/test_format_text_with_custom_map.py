@@ -3,8 +3,8 @@ import logging
 import sys
 import os
 
-# 添加项目根目录到sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
+# Add project root directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 from utils.cleaning.format_text_with_custom_map import replace_text_in_files, load_cmap_custom
 
