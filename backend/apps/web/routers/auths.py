@@ -380,7 +380,7 @@ async def get_api_key(user=Depends(get_current_user)):
 ############################
 logging.info("Init MicrosoftSSO")
 from utils.auth.msal_auth import MSALAuth
-msal_auth = MSALAuth(
+auth = MSALAuth(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     tenant_id=TENANT,
@@ -394,7 +394,7 @@ async def signin_with_sso():
     logging.info("signin_with_sso")
 
     # 获取登录URL
-    login_url = msal_auth.get_login_url()
+    login_url = auth.get_login_url()
     return RedirectResponse(url=login_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -459,8 +459,8 @@ async def get_sso_user(request: Request):
                 detail="Authorization code not found"
             )
         
-        # 使用 msal_auth 处理回调，获取令牌和用户信息
-        result = await msal_auth.handle_callback(code)
+        # 使用 auth 处理回调，获取令牌和用户信息
+        result = await auth.handle_callback(code)
         user_info: Dict[str, Any] = result["user_info"]
         
         # 构造与 OpenID 格式一致的用户信息

@@ -98,78 +98,73 @@ async def send_email_with_attachments(
     Returns:
         bool: True if email was sent successfully, False otherwise
     """
-    try:
-        # Create a custom credential that uses the access token
-        credential = TokenCredential(access_token)
-        
-        # Create Graph client with the credential
-        graph_client = GraphServiceClient(credentials=credential)
-        
-        # Create recipients list
-        to_recipients = [
-            Recipient(
-                email_address=EmailAddress(
-                    address=to_email,
-                ),
+    # Create a custom credential that uses the access token
+    credential = TokenCredential(access_token)
+    
+    # Create Graph client with the credential
+    graph_client = GraphServiceClient(credentials=credential)
+    
+    # Create recipients list
+    to_recipients = [
+        Recipient(
+            email_address=EmailAddress(
+                address=to_email,
             ),
-        ]
-        
-        # Add CC recipients if provided
-        if cc_emails:
-            to_recipients.extend([
-                Recipient(
-                    email_address=EmailAddress(
-                        address=cc_email,
-                    ),
-                )
-                for cc_email in cc_emails
-            ])
-        
-        # Create BCC recipients if provided
-        bcc_recipients = [
+        ),
+    ]
+    
+    # Add CC recipients if provided
+    if cc_emails:
+        to_recipients.extend([
             Recipient(
                 email_address=EmailAddress(
-                    address=bcc_email,
+                    address=cc_email,
                 ),
             )
-            for bcc_email in (bcc_emails or [])
-        ]
-        
-        # Create the email message
-        message = Message(
-            subject=subject,
-            body=ItemBody(
-                content_type=BodyType.Text,
-                content=body,
+            for cc_email in cc_emails
+        ])
+    
+    # Create BCC recipients if provided
+    bcc_recipients = [
+        Recipient(
+            email_address=EmailAddress(
+                address=bcc_email,
             ),
-            to_recipients=to_recipients,
-            bcc_recipients=bcc_recipients,
         )
+        for bcc_email in (bcc_emails or [])
+    ]
+    
+    # Create the email message
+    message = Message(
+        subject=subject,
+        body=ItemBody(
+            content_type=BodyType.Text,
+            content=body,
+        ),
+        to_recipients=to_recipients,
+        bcc_recipients=bcc_recipients,
+    )
+    
+    # Add attachments if provided
+    if attachment_paths:
+        attachments = []
+        for file_path in attachment_paths:
+            try:
+                attachment = create_file_attachment(file_path)
+                attachments.append(attachment)
+            except Exception as e:
+                safe_log(logger.error, f"Error creating attachment from {file_path}: {str(e)}")
+                continue
         
-        # Add attachments if provided
-        if attachment_paths:
-            attachments = []
-            for file_path in attachment_paths:
-                try:
-                    attachment = create_file_attachment(file_path)
-                    attachments.append(attachment)
-                except Exception as e:
-                    safe_log(logger.error, f"Error creating attachment from {file_path}: {str(e)}")
-                    continue
-            
-            if attachments:
-                message.attachments = attachments
-        
-        # Create the request body
-        request_body = SendMailPostRequestBody(
-            message=message,
-        )
-        
-        # Send the email
-        await graph_client.me.send_mail.post(request_body)
-        safe_log(logger.info, f"Email sent successfully using Graph SDK to {to_email}")
-        return True
-        
-    except Exception as e:
-        safe_log(logger.error, f"Error sending email with Graph SDK: {str(e)}")
-        return False
+        if attachments:
+            message.attachments = attachments
+    
+    # Create the request body
+    request_body = SendMailPostRequestBody(
+        message=message,
+    )
+    
+    # Send the email
+    await graph_client.me.send_mail.post(request_body)
+    safe_log(logger.info, f"Email sent successfully using Graph SDK to {to_email}")
+    return True

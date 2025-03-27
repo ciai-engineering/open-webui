@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 
 from fastapi import APIRouter
 import json
+from apps.web.routers.auths import auth
 from utils.mail.mail import send_email_with_attachments
 from utils.security import safe_log
 from utils.mail.templates import(
@@ -35,7 +36,7 @@ from config import (
     HR_EMAIL,
 )
 
-from apps.web.routers.auths import ACCESS_TOKEN
+from apps.web.routers.auths import ACCESS_TOKEN, REFRESH_TOKEN
 from apps.web.models.users import UserModel
 
 from constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
@@ -63,6 +64,7 @@ async def submit_leave_form(
             extra_sso = json.loads(session_user.extra_sso)
             logging.debug(f"extra_sso: {extra_sso}")
             access_token = extra_sso.get(ACCESS_TOKEN)
+            refresh_token = extra_sso.get(REFRESH_TOKEN)
             logging.debug(f"access_token: {access_token}")
             
             if not access_token:
@@ -119,15 +121,42 @@ Sincerely,
 
                 safe_log(logging.info, "准备发送邮件", {"recipient": recipient, "subject": subject})
                 
-                # 使用新的邮件发送函数
-                success = await send_email_with_attachments(
-                    access_token=access_token,
-                    to_email=recipient,
-                    subject=subject,
-                    body=body,
-                    attachment_paths=[attachment_path],  # 暂时不发送附件
-                    cc_emails=[session_user.email]  # 抄送给申请人
-                )
+                try:
+                    # 使用新的邮件发送函数
+                    success = await send_email_with_attachments(
+                        access_token=access_token,
+                        to_email=recipient,
+                        subject=subject,
+                        body=body,
+                        attachment_paths=[attachment_path],  # 暂时不发送附件
+                        cc_emails=[]  # 抄送给申请人
+                    )
+                except PermissionError as e:
+                    safe_log(logging.error, "发送邮件时权限错误", exception=e)
+                    safe_log(logging.info, "尝试刷新令牌")
+                    refresh_result = auth.refresh_token(refresh_token)
+                    if refresh_result and refresh_result.get("access_token"):
+                        # 使用新的邮件发送函数
+                        success = await send_email_with_attachments(
+                            access_token=refresh_result.get("access_token", ""),
+                            to_email=recipient,
+                            subject=subject,
+                            body=body,
+                            attachment_paths=[attachment_path],  # 暂时不发送附件
+                            cc_emails=[]  # 抄送给申请人
+                        )
+                        if success:
+                            safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
+                        else:
+                            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
+                    else:
+                        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
+                except ValueError as e:
+                    safe_log(logging.error, "发送邮件时参数错误", exception=e)
+                    raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)
+                except Exception as e:
+                    safe_log(logging.error, "发送邮件时发生未知错误", exception=e)
+                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送邮件时出错: {str(e)}")
                 
                 if not success:
                     raise Exception("邮件发送失败")
@@ -175,16 +204,6 @@ async def submit_hr_doc_form(
                 "has_access_token": bool(access_token), 
                 "has_refresh_token": bool(refresh_token)
             })
-            
-            # 创建Mail对象，传递用户ID和刷新令牌
-            mail = Mail(
-                client_id=CLIENT_ID, 
-                tenant_id=TENANT, 
-                authorization=f"Bearer {access_token}",
-                refresh_token=refresh_token,
-                client_secret=CLIENT_SECRET,
-                user_id=session_user.id
-            )
 
             if form_data.type_of_document == 1:
                 # "Job Letter"
@@ -214,8 +233,17 @@ async def submit_hr_doc_form(
             
             try:
                 safe_log(logging.info, "准备发送邮件", {"recipient": recipient, "subject": subject})
-                await mail.send_simple_mail(subject, body, recipient)
-                safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
+                # 使用新的邮件发送函数
+                success = await send_email_with_attachments(
+                    access_token=access_token,
+                    to_email=recipient,
+                    subject=subject,
+                    body=body,
+                    attachment_paths=[],  # 暂时不发送附件
+                    cc_emails=[session_user.email]  # 抄送给申请人
+                )
+                if success:
+                    safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
             except PermissionError as e:
                 safe_log(logging.error, "发送邮件时权限错误", exception=e)
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
