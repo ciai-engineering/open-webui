@@ -284,7 +284,7 @@ class Graph:
                 'client_secret': self.client_secret,
                 'refresh_token': self.refresh_token,
                 'grant_type': 'refresh_token',
-                'scope': 'https://graph.microsoft.com/.default offline_access'  # 修改 scope 格式
+                'scope': 'https://graph.microsoft.com/.default'  # 修改 scope 格式
             }
             
             async with aiohttp.ClientSession() as session:
