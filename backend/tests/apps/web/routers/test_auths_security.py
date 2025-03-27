@@ -30,50 +30,37 @@ MOCK_REFRESH_TOKEN = "refresh_123456789"
 async def test_get_staff_dict_security_logging():
     # Import get_staff_dict for individual testing
     from apps.web.routers.auths import get_staff_dict
+    from apps.web.models.staffs import Staffs
 
     # Mock SSO user
     mock_sso_user = MagicMock()
     mock_sso_user.id = "test_id"
     mock_sso_user.email = "test@example.com"
 
+    # Mock request
+    mock_request = MagicMock()
+    mock_request.query_params = {"code": "mock_code"}
+
     # Mock staff_dict
     mock_staff_dict = {
-        "access_token": MOCK_ACCESS_TOKEN,
-        "refresh_token": MOCK_REFRESH_TOKEN,
-        "user": {
-            "id": "test_id",
-            "email": "test@example.com",
-            "nested": {
-                "token": "nested_token"
-            }
-        }
+        "emp_id": "EMP123",
+        "job_title": "Test Engineer",
+        "department": "IT",
+        "first_name": "Test",
+        "last_name": "User"
     }
 
-    # Mock aiohttp session
-    mock_session = AsyncMock()
-
-    # Mock token response
-    mock_token_response = {
-        "access_token": MOCK_ACCESS_TOKEN,
-        "refresh_token": MOCK_REFRESH_TOKEN
-    }
-
-    # Configure mock session
-    mock_session.post.return_value.__aenter__.return_value.json.return_value = mock_token_response
-    mock_session.post.return_value.__aenter__.return_value.status = 200
-
-    # Mock sso.access_token
-    mock_sso = MagicMock()
-    mock_sso.access_token = MOCK_ACCESS_TOKEN
-
-    # Create mock request
-    mock_request = Request(scope={"type": "http"})
-
-    # Directly call the tested function, but don't expect return value
-    await get_staff_dict(mock_sso_user, mock_staff_dict, mock_session, mock_sso, mock_request)
-
-    # Verify log calls
-    # ... existing code ...
+    # Mock Staffs.get_staff_by_email
+    with patch.object(Staffs, 'get_staff_by_email', return_value=mock_staff_dict):
+        # Directly call the tested function
+        result = await get_staff_dict(mock_sso_user, mock_request)
+        
+        # Verify result is not None and contains expected data
+        assert result is not None
+        result_dict = json.loads(result)
+        assert result_dict["emp_id"] == mock_staff_dict["emp_id"]
+        assert result_dict["job_title"] == mock_staff_dict["job_title"]
+        assert result_dict["department"] == mock_staff_dict["department"]
 
 # Test SSN callback security logging on error
 @patch('apps.web.routers.auths.safe_log')
@@ -98,25 +85,38 @@ def test_signin_callback_logs_securely_on_error(mock_retry_operation, mock_safe_
 
 # Test security logging in get_sso_user function
 @patch('apps.web.routers.auths.safe_log')
-@patch('apps.web.routers.auths.sso')
+@patch('apps.web.routers.auths.msal_auth')
 @patch('apps.web.routers.auths.retry_operation')
-def test_get_sso_user_logs_securely(mock_retry_operation, mock_sso, mock_safe_log):
+@pytest.mark.asyncio
+async def test_get_sso_user_logs_securely(mock_retry_operation, mock_msal_auth, mock_safe_log):
     # Import get_sso_user for individual testing
     from apps.web.routers.auths import get_sso_user
     
     # Mock request
     mock_request = MagicMock()
+    mock_request.query_params = {"code": "mock_code"}
     
     # Mock retry_operation result
     mock_user = MagicMock()
     mock_user.email = "test@example.com"
     mock_retry_operation.return_value = mock_user
     
-    # Mock sso.access_token containing sensitive information
-    mock_sso.access_token = MOCK_ACCESS_TOKEN
+    # Mock MSALAuth instance
+    mock_instance = mock_msal_auth.return_value
+    mock_instance.handle_callback.return_value = {
+        "access_token": MOCK_ACCESS_TOKEN,
+        "user_info": {
+            "id": "mock_id",
+            "userPrincipalName": "test@example.com",
+            "displayName": "Test User"
+        }
+    }
     
     # Call tested function
-    pytest.mark.asyncio(get_sso_user)(mock_request)
+    result = await get_sso_user(mock_request)
+    
+    # Verify result is not None
+    assert result is not None
     
     # If there are logs, check that they do not contain sensitive tokens
     for call in mock_safe_log.call_args_list:

@@ -9,7 +9,6 @@ from typing import Dict, Optional, Any, Coroutine, Union, List, cast, TypeVar, A
 
 from fastapi import Request, Depends, HTTPException, status, APIRouter
 from fastapi.responses import RedirectResponse
-from fastapi_sso.sso.microsoft import MicrosoftSSO
 from pydantic import BaseModel
 
 from utils.avatar import generate_avatar
@@ -17,7 +16,6 @@ from utils.security import safe_log, mask_sensitive_data
 from apps.web.exceptions.exception import IllegalAccountException
 import httpcore
 import httpx
-
 
 from apps.web.models.auths import (
     SigninForm,

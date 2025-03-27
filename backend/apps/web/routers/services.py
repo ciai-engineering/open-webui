@@ -2,7 +2,6 @@ import logging
 
 from fastapi import Request, UploadFile, File
 from fastapi import Depends, HTTPException, status
-from fastapi_sso.sso.microsoft import MicrosoftSSO
 
 from fastapi import APIRouter
 import json
@@ -40,16 +39,6 @@ from apps.web.routers.auths import ACCESS_TOKEN
 
 from constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
 router = APIRouter()
-
-
-sso = MicrosoftSSO(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    tenant=TENANT,
-    redirect_uri=REDIRECT_URI,
-    allow_insecure_http=True,
-    scope=["User.Read", "Directory.Read.All", "User.ReadBasic.All", "Mail.Send"],
-)
 
 
 ############################

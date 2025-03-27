@@ -109,10 +109,22 @@ class TestSSOLogin:
     """Test SSO login related APIs"""
     
     @patch('utils.security.safe_log')
-    def test_signin_callback(self, mock_safe_log):
+    @patch('utils.auth.msal_auth.MSALAuth')
+    def test_signin_callback(self, mock_msal_auth, mock_safe_log):
         """Test SSO login callback API"""
+        # Mock MSALAuth instance
+        mock_instance = mock_msal_auth.return_value
+        mock_instance.handle_callback.return_value = {
+            "access_token": "mock_access_token",
+            "user_info": {
+                "id": "mock_id",
+                "userPrincipalName": "test@example.com",
+                "displayName": "Test User"
+            }
+        }
+        
         # Call SSO login callback API
-        response = client.get("/auths/signin/callback")
+        response = client.get("/auths/signin/callback?code=mock_code")
         
         # Record response
         logger.info(f"SSO login callback response: {response.status_code}")
@@ -125,10 +137,15 @@ class TestSSOLogin:
             check_no_sensitive_info_in_logs(mock_safe_log)
     
     @patch('utils.security.safe_log')
-    def test_sso_login_init(self, mock_safe_log):
+    @patch('utils.auth.msal_auth.MSALAuth')
+    def test_sso_login_init(self, mock_msal_auth, mock_safe_log):
         """Test SSO login initialization API"""
+        # Mock MSALAuth instance
+        mock_instance = mock_msal_auth.return_value
+        mock_instance.get_login_url.return_value = "https://mock-login-url.com"
+        
         # Call SSO login initialization API
-        response = client.get("/auths/signin/init")
+        response = client.get("/auths/signin/sso")
         
         # Record response
         logger.info(f"SSO login initialization response: {response.status_code}")
