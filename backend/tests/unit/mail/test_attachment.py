@@ -21,46 +21,19 @@ sys.path.append(project_root)
 
 from utils.mail.graph import Graph
 from utils.security import safe_log
+from utils.mail.mail import send_email_with_attachments
 
 
 @pytest.mark.asyncio
 async def test_attachment_sending(token, recipient_email, attachment_path):
     """测试附件发送功能"""
     try:
-        print(f"开始测试附件邮件发送功能...")
-        
-        # 检查附件是否存在
-        if not os.path.isfile(attachment_path):
-            print(f"错误: 附件文件不存在: {attachment_path}")
-            return False
-            
-        print(f"附件文件: {attachment_path}")
-        print(f"文件大小: {os.path.getsize(attachment_path)} 字节")
-        
-        # 设置测试配置
-        config = ConfigParser()
-        config.add_section('graph')
-        config['graph']['client_id'] = "2b0e50f6-6937-4a32-9501-94bf7357e883"
-        config['graph']['tenant_id'] = "c93272d3-1b07-4b3d-a3b6-19b34a973915"
-        config['graph']['graph_user_scopes'] = "Mail.Send"
-        config['graph']['authorization'] = f"Bearer {token}"
-        config['graph']['refresh_token'] = ""
-        config['graph']['client_secret'] = ""
-        
-        # 创建Graph对象
-        graph = Graph(config['graph'])
-        
-        # 测试令牌验证
-        print("验证令牌...")
-        is_valid = await graph.validate_token()
-        if not is_valid:
-            print("令牌验证失败")
-            return False
-            
-        print("令牌验证成功")
+        print(f"\n开始测试附件发送功能...")
+        print(f"收件人: {recipient_email}")
+        print(f"附件路径: {attachment_path}")
         
         # 构造测试邮件内容
-        subject = "测试邮件 - 附件测试"
+        subject = "测试邮件 - 附件发送测试"
         body = """
         这是一封测试邮件，用于测试附件发送功能。
         
@@ -71,16 +44,22 @@ async def test_attachment_sending(token, recipient_email, attachment_path):
         
         # 发送测试邮件
         print("尝试发送带附件的测试邮件...")
-        await graph.send_leave_mail(
+        success = await send_email_with_attachments(
+            access_token=token,
+            to_email=recipient_email,
             subject=subject,
-            leave_body=body,
-            recipient=recipient_email,
-            attachment_path=attachment_path,
-            attachment_name=os.path.basename(attachment_path)
+            body=body,
+            attachment_paths=[attachment_path],  # 发送附件
+            cc_emails=[],  # 不抄送
+            bcc_emails=[]  # 不密送
         )
         
-        print("邮件发送成功！")
-        return True
+        if success:
+            print("邮件发送成功！")
+        else:
+            print("邮件发送失败！")
+            
+        return success
     except Exception as e:
         print(f"测试过程中发生错误: {e}")
         traceback.print_exc()

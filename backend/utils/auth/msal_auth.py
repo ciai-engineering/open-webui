@@ -91,10 +91,13 @@ class MSALAuth:
             # 获取用户信息
             user_info = await self._get_user_info(result["access_token"])
             
+            logging.debug(f"User info: {user_info}")
+
             return {
                 "access_token": result["access_token"],
                 "refresh_token": result.get("refresh_token"),
                 "id_token": result.get("id_token"),
+                "expires_in": result.get("expires_in"),
                 "user_info": user_info
             }
             

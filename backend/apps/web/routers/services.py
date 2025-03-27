@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, status
 
 from fastapi import APIRouter
 import json
-from utils.mail.mail import Mail
+from utils.mail.mail import send_email_with_attachments
 from utils.security import safe_log
 from utils.mail.templates import(
     JobLetterRequest,
@@ -36,8 +36,11 @@ from config import (
 )
 
 from apps.web.routers.auths import ACCESS_TOKEN
+from apps.web.models.users import UserModel
 
 from constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
+from utils.mail.fill_form import FillLeaveForm
+
 router = APIRouter()
 
 
@@ -48,7 +51,7 @@ router = APIRouter()
 
 @router.post("/leave", response_model=LeaveResponse)
 async def submit_leave_form(
-    request: Request,form_data: LeaveForm, session_user = Depends(get_current_user)
+    request: Request,form_data: LeaveForm, session_user: UserModel = Depends(get_current_user)
 ):
     safe_log(logging.info, "收到休假申请表单", {"name": form_data.name, "from": form_data.leavefrom, "to": form_data.leaveto})
     if session_user:
@@ -58,26 +61,16 @@ async def submit_leave_form(
         try:
             # 解析用户SSO数据
             extra_sso = json.loads(session_user.extra_sso)
+            logging.debug(f"extra_sso: {extra_sso}")
             access_token = extra_sso.get(ACCESS_TOKEN)
-            refresh_token = extra_sso.get("refresh_token")
+            logging.debug(f"access_token: {access_token}")
             
             if not access_token:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
                 
             safe_log(logging.info, "SSO令牌状态", {
-                "has_access_token": bool(access_token), 
-                "has_refresh_token": bool(refresh_token)
+                "has_access_token": bool(access_token)
             })
-            
-            # 创建Mail对象，传递用户ID和刷新令牌
-            mail = Mail(
-                client_id=CLIENT_ID, 
-                tenant_id=TENANT, 
-                authorization=f"Bearer {access_token}",
-                refresh_token=refresh_token,
-                client_secret=CLIENT_SECRET,
-                user_id=session_user.id
-            )
             
             subject = f"Leave of Absence Request - {form_data.name}"
             body = f"""
@@ -100,17 +93,48 @@ Sincerely,
                 recipient = session_user.email
             
             try:
+                # fill the leave form
+                TEMPPLATE_PATH = 'utils/mail/leave_template.pdf'
+                OUTPUT_PATH = 'utils/mail/'
+
+                data = {
+                            '{NAME}': form_data.name,
+                            '{ID}': form_data.employee_id,
+                            '{JOBTITLE}': form_data.job_title,
+                            '{DEPT}': form_data.dept,
+                            '{LEAVETYPE}': form_data.type_of_leave,
+                            '{REMARKS}': form_data.remarks,
+                            '{LEAVEFROM}': form_data.leavefrom,
+                            '{LEAVETO}': form_data.leaveto,
+                            '{DAYS}': form_data.days,
+                            '{ADDRESS}': form_data.address,
+                            '{TELE}': form_data.tele,
+                            '{EMAIL}': form_data.email,
+                            '{DATE}': form_data.date,
+                        }
+                # get the form file path
+                attachment_path = FillLeaveForm(TEMPPLATE_PATH, OUTPUT_PATH, data).fill_template()
+                # make the mail content and send the mail can customize the subject and body
+                attachment_name = 'Leave_Application_Form.pdf'
+
                 safe_log(logging.info, "准备发送邮件", {"recipient": recipient, "subject": subject})
-                await mail.send_mail(subject, body, recipient, form_data)
+                
+                # 使用新的邮件发送函数
+                success = await send_email_with_attachments(
+                    access_token=access_token,
+                    to_email=recipient,
+                    subject=subject,
+                    body=body,
+                    attachment_paths=[attachment_path],  # 暂时不发送附件
+                    cc_emails=[session_user.email]  # 抄送给申请人
+                )
+                
+                if not success:
+                    raise Exception("邮件发送失败")
+                    
                 safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
-            except PermissionError as e:
-                safe_log(logging.error, "发送邮件时权限错误", exception=e)
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
-            except ValueError as e:
-                safe_log(logging.error, "发送邮件时参数错误", exception=e)
-                raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)
             except Exception as e:
-                safe_log(logging.error, "发送邮件时发生未知错误", exception=e)
+                safe_log(logging.error, "发送邮件时发生错误", exception=e)
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送邮件时出错: {str(e)}")
 
             return {

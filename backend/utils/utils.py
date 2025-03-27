@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Union, Optional
 from constants import ERROR_MESSAGES
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import requests
 import jwt
 import uuid
@@ -42,7 +42,7 @@ def create_token(data: dict, expires_delta: Union[timedelta, None] = None) -> st
     payload = data.copy()
 
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
         payload.update({"exp": expire})
 
     encoded_jwt = jwt.encode(payload, SESSION_SECRET, algorithm=ALGORITHM)

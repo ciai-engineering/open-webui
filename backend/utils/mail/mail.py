@@ -1,139 +1,175 @@
 import logging
-import json
-import time
-from configparser import ConfigParser
+import base64
+from pathlib import Path
+from typing import List, Optional, Union
+from msgraph.graph_service_client import GraphServiceClient
+from msgraph.generated.users.item.send_mail.send_mail_post_request_body import SendMailPostRequestBody
+from msgraph.generated.models.message import Message
+from msgraph.generated.models.item_body import ItemBody
+from msgraph.generated.models.body_type import BodyType
+from msgraph.generated.models.recipient import Recipient
+from msgraph.generated.models.email_address import EmailAddress
+from msgraph.generated.models.file_attachment import FileAttachment
+from azure.core.credentials import AccessToken, TokenCredential as AzureTokenCredential
 
-from .graph import Graph
-from .fill_form import FillLeaveForm
-from apps.web.models.services import LeaveForm
-from apps.web.models.users import Users
 from utils.security import safe_log
 
-class Mail:
-    graph: Graph
+logger = logging.getLogger(__name__)
 
-    def __init__(self, client_id: str, tenant_id: str, authorization: str, refresh_token: str = "", client_secret: str = "", user_id: str = "", graph_user_scopes: list[str] = ["Mail.Send"]):
-        # 创建配置解析器
-        config = ConfigParser()
-        config.add_section('graph')
-        
-        # 确保所有值都是字符串类型
-        config['graph']['client_id'] = str(client_id)
-        config['graph']['tenant_id'] = str(tenant_id)
-        config['graph']['graph_user_scopes'] = ','.join(str(scope) for scope in graph_user_scopes)
-        config['graph']['authorization'] = str(authorization)
-        config['graph']['refresh_token'] = str(refresh_token)
-        config['graph']['client_secret'] = str(client_secret)
-        
-        # 获取graph部分的SectionProxy
-        self.graph: Graph = Graph(config['graph'])
-        self.user_id = str(user_id)
+class TokenCredential(AzureTokenCredential):
+    def __init__(self, access_token):
+        self.access_token = access_token
 
-    async def ensure_valid_token(self):
-        """确保令牌有效，必要时刷新
+    def get_token(self, *scopes, **kwargs):
+        return AccessToken(self.access_token, 3600)  # 1 hour expiry
+
+def create_file_attachment(file_path: Union[str, Path], name: Optional[str] = None) -> FileAttachment:
+    """
+    Create a FileAttachment object from a file path
+    
+    Args:
+        file_path: Path to the file to attach
+        name: Optional name for the attachment (defaults to file name)
+    
+    Returns:
+        FileAttachment object
+    """
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    with open(file_path, 'rb') as f:
+        file_content = f.read()
+        file_content_base64 = base64.b64encode(file_content).decode("utf-8")
+    
+    # Use provided name or file name
+    attachment_name = name or file_path.name
+    
+    # Get file extension and determine content type
+    file_extension = file_path.suffix.lower()
+    safe_log(logger.info, f"File extension: {file_extension}")
+    content_type_map = {
+        '.txt': 'text/plain',
+        '.pdf': 'application/pdf',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.zip': 'application/zip',
+        '.rar': 'application/x-rar-compressed',
+    }
+    content_type = content_type_map.get(file_extension, 'application/octet-stream')
+    safe_log(logger.info, f"Content type: {content_type}")
+
+    # Create FileAttachment object
+    attachment = FileAttachment()
+    attachment.name = attachment_name
+    attachment.content_type = content_type
+    attachment.content_bytes = base64.b64decode(file_content_base64)  # Convert to bytes
+    attachment.o_data_type = "#microsoft.graph.fileAttachment"
+    safe_log(logger.info, f"Attachment: {attachment}")
+    return attachment
+
+async def send_email_with_attachments(
+    access_token: str,
+    to_email: str,
+    subject: str,
+    body: str,
+    attachment_paths: Optional[List[str]] = None,
+    cc_emails: Optional[List[str]] = None,
+    bcc_emails: Optional[List[str]] = None
+) -> bool:
+    """
+    Send email with attachments using Microsoft Graph SDK
+    
+    Args:
+        access_token: Microsoft Graph API access token
+        to_email: Recipient email address
+        subject: Email subject
+        body: Email body content
+        attachment_paths: List of file paths to attach
+        cc_emails: List of CC email addresses
+        bcc_emails: List of BCC email addresses
+    
+    Returns:
+        bool: True if email was sent successfully, False otherwise
+    """
+    try:
+        # Create a custom credential that uses the access token
+        credential = TokenCredential(access_token)
         
-        Returns:
-            bool: 是否有有效令牌
-        """
-        # 尝试验证当前令牌
-        is_valid = await self.graph.validate_token()
-        if is_valid:
-            safe_log(logging.info, "当前令牌有效，无需刷新")
-            return True
+        # Create Graph client with the credential
+        graph_client = GraphServiceClient(credentials=credential)
+        
+        # Create recipients list
+        to_recipients = [
+            Recipient(
+                email_address=EmailAddress(
+                    address=to_email,
+                ),
+            ),
+        ]
+        
+        # Add CC recipients if provided
+        if cc_emails:
+            to_recipients.extend([
+                Recipient(
+                    email_address=EmailAddress(
+                        address=cc_email,
+                    ),
+                )
+                for cc_email in cc_emails
+            ])
+        
+        # Create BCC recipients if provided
+        bcc_recipients = [
+            Recipient(
+                email_address=EmailAddress(
+                    address=bcc_email,
+                ),
+            )
+            for bcc_email in (bcc_emails or [])
+        ]
+        
+        # Create the email message
+        message = Message(
+            subject=subject,
+            body=ItemBody(
+                content_type=BodyType.Text,
+                content=body,
+            ),
+            to_recipients=to_recipients,
+            bcc_recipients=bcc_recipients,
+        )
+        
+        # Add attachments if provided
+        if attachment_paths:
+            attachments = []
+            for file_path in attachment_paths:
+                try:
+                    attachment = create_file_attachment(file_path)
+                    attachments.append(attachment)
+                except Exception as e:
+                    safe_log(logger.error, f"Error creating attachment from {file_path}: {str(e)}")
+                    continue
             
-        # 令牌无效，尝试刷新
-        if self.graph.refresh_token and self.user_id:
-            safe_log(logging.info, "当前令牌无效，尝试刷新")
-            access_token, refresh_token = await self.graph.refresh_access_token()
-            
-            if access_token:
-                safe_log(logging.info, "令牌刷新成功，更新授权信息")
-                # 更新当前实例的令牌
-                self.graph.authorization = f"Bearer {access_token}"
-                if refresh_token:
-                    self.graph.refresh_token = refresh_token
-                
-                # 更新数据库中存储的令牌
-                if self.user_id:
-                    user = Users.get_user_by_id(self.user_id)
-                    if user and user.extra_sso:
-                        try:
-                            extra_sso_data = json.loads(user.extra_sso)
-                            extra_sso_data["access_token"] = access_token
-                            extra_sso_data["refresh_token"] = refresh_token
-                            extra_sso_data["expires_at"] = time.time() + 3600  # 假设令牌有效期为1小时
-                            
-                            Users.update_user_by_id(
-                                self.user_id, 
-                                {"extra_sso": json.dumps(extra_sso_data)}
-                            )
-                            safe_log(logging.info, "用户令牌已更新", {"user_id": self.user_id})
-                        except Exception as e:
-                            safe_log(logging.error, "更新用户令牌时出错", exception=e)
-                
-                return True
-                
-        safe_log(logging.error, "无法获取有效令牌")
+            if attachments:
+                message.attachments = attachments
+        
+        # Create the request body
+        request_body = SendMailPostRequestBody(
+            message=message,
+        )
+        
+        # Send the email
+        await graph_client.me.send_mail.post(request_body)
+        safe_log(logger.info, f"Email sent successfully using Graph SDK to {to_email}")
+        return True
+        
+    except Exception as e:
+        safe_log(logger.error, f"Error sending email with Graph SDK: {str(e)}")
         return False
-
-    async def send_mail(self, subject, body, recipient, form_data: LeaveForm):
-        """
-        Send an email with a filled leave form as an attachment.
-
-        Args:
-            subject (str): The subject of the email.
-            body (str): The body content of the email.
-            recipient (str): The recipient's email address.
-            form_data (LeaveForm): The data to fill in the leave form.
-        """
-        # 确保令牌有效
-        token_valid = await self.ensure_valid_token()
-        if not token_valid:
-            raise PermissionError("令牌已过期，无法发送邮件。请重新登录。")
-            
-        # fill the leave form
-        template_path = 'utils/mail/leave_template.pdf'
-        output_path = 'utils/mail/'
-
-        data = {
-                    '{NAME}': form_data.name,
-                    '{ID}': form_data.employee_id,
-                    '{JOBTITLE}': form_data.job_title,
-                    '{DEPT}': form_data.dept,
-                    '{LEAVETYPE}': form_data.type_of_leave,
-                    '{REMARKS}': form_data.remarks,
-                    '{LEAVEFROM}': form_data.leavefrom,
-                    '{LEAVETO}': form_data.leaveto,
-                    '{DAYS}': form_data.days,
-                    '{ADDRESS}': form_data.address,
-                    '{TELE}': form_data.tele,
-                    '{EMAIL}': form_data.email,
-                    '{DATE}': form_data.date,
-                }
-        # get the form file path
-        file_path = FillLeaveForm(template_path, output_path, data).fill_template()
-        # make the mail content and send the mail can customize the subject and body
-        attachment_path = file_path
-        attachment_name = 'Leave_Application_Form.pdf'
-
-        safe_log(logging.info, "发送带附件的邮件", {"recipient": recipient, "attachment": attachment_name})
-        await self.graph.send_leave_mail(subject, body, recipient, attachment_path, attachment_name)
-        safe_log(logging.info, "邮件发送成功")
-
-    async def send_simple_mail(self, subject, content, recipient):
-        """
-        Send a simple email without any attachments.
-
-        Args:
-            subject (str): The subject of the email.
-            content (str): The body content of the email.
-            recipient (str): The recipient's email address.
-        """
-        # 确保令牌有效
-        token_valid = await self.ensure_valid_token()
-        if not token_valid:
-            raise PermissionError("令牌已过期，无法发送邮件。请重新登录。")
-            
-        safe_log(logging.info, "发送简单邮件", {"recipient": recipient, "subject": subject})
-        await self.graph.send_leave_mail(subject, content, recipient, "", "")  # 使用空字符串代替None
-        safe_log(logging.info, "邮件发送成功")

@@ -30,6 +30,7 @@ from apps.web.models.auths import (
 )
 from apps.web.models.users import Users
 from apps.web.models.staffs import Staffs
+from apps.web.models.sso import SSOUser
 
 from utils.utils import (
     get_password_hash,
@@ -460,34 +461,25 @@ async def get_sso_user(request: Request):
         
         # 使用 msal_auth 处理回调，获取令牌和用户信息
         result = await msal_auth.handle_callback(code)
-        user_info = result["user_info"]
+        user_info: Dict[str, Any] = result["user_info"]
         
         # 构造与 OpenID 格式一致的用户信息
-        class SSOUser:
-            def __init__(self, user_info: Dict[str, Any]):
-                self.id = user_info.get("id")
-                self.email = user_info.get("userPrincipalName")
-                self.first_name = user_info.get("givenName")
-                self.last_name = user_info.get("surname")
-                self.display_name = user_info.get("displayName")
-                self.picture = user_info.get("avatar")
-                self.provider = "microsoft"
-                self.access_token = result["access_token"]
+        sso_user: SSOUser = SSOUser(user_info)
+        sso_user.set_tokens(
+            access_token=result["access_token"],
+            refresh_token=result.get("refresh_token"),
+            expires_in=result.get("expires_in")
+        )
         
-        sso_user = SSOUser(user_info)
         logging.debug(f"Access token: {sso_user.access_token}")
+        logging.debug(f"sso_user: {sso_user}")
         return sso_user
 
     return await retry_operation(operation)
 
-async def get_staff_dict(sso_user, request: Optional[Request] = None):
+async def get_staff_dict(sso_user: SSOUser, request: Optional[Request] = None):
     """获取员工信息"""
     try:
-        # 如果提供了request，可以获取auth_code
-        auth_code = ""
-        if request:
-            auth_code = request.query_params.get("code", "")
-        
         # 从SSO用户获取电子邮件
         email = sso_user.email.lower()
         safe_log(logging.info, f"获取用户信息", {"email": email})
@@ -499,33 +491,8 @@ async def get_staff_dict(sso_user, request: Optional[Request] = None):
         
         # 获取令牌和过期时间
         staff_dict[ACCESS_TOKEN] = sso_user.access_token
-        
-        # 获取刷新令牌并存储
-        if auth_code:
-            try:
-                # 使用授权码获取刷新令牌
-                token_url = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
-                token_data = {
-                    "client_id": CLIENT_ID,
-                    "client_secret": CLIENT_SECRET,
-                    "code": auth_code,
-                    "redirect_uri": REDIRECT_URI,
-                    "grant_type": "authorization_code",
-                    "scope": "User.Read Directory.Read.All User.ReadBasic.All Mail.Read Mail.Send"
-                }
-                
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(token_url, data=token_data) as response:
-                        if response.status == 200:
-                            token_response = await response.json()
-                            staff_dict[REFRESH_TOKEN] = token_response.get("refresh_token", "")
-                            staff_dict[EXPIRES_AT] = time.time() + token_response.get("expires_in", 3600)
-                            safe_log(logging.info, "成功获取并存储刷新令牌")
-                        else:
-                            error_text = await response.text()
-                            safe_log(logging.error, "获取刷新令牌失败", {"status": response.status})
-            except Exception as e:
-                safe_log(logging.error, "获取刷新令牌时出错", exception=str(e))
+        staff_dict[REFRESH_TOKEN] = sso_user.refresh_token
+        staff_dict[EXPIRES_AT] = sso_user.token_expires_at
 
         # 安全记录用户信息（不含敏感数据）
         safe_log(logging.info, f"从MSSQL获取到{email}的员工信息", mask_sensitive_data(staff_dict))
