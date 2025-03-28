@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from utils.security import safe_log
 
 class MSALAuth:
-    """Microsoft Authentication Library (MSAL) 认证工具类"""
+    """Microsoft Authentication Library (MSAL) Authentication Tool Class"""
     
     def __init__(
         self,
@@ -19,14 +19,14 @@ class MSALAuth:
         redirect_uri: str
     ):
         """
-        初始化 MSAL 认证工具
+        Initialize MSAL authentication tool
         
         Args:
-            client_id: Azure AD 应用程序 ID
-            client_secret: Azure AD 应用程序密钥
-            tenant_id: Azure AD 租户 ID
-            scopes: 请求的权限范围
-            redirect_uri: 回调 URI
+            client_id: Azure AD application ID
+            client_secret: Azure AD application secret
+            tenant_id: Azure AD tenant ID
+            scopes: Requested permission scopes
+            redirect_uri: Callback URI
         """
         self.client_id = client_id
         self.client_secret = client_secret
@@ -36,7 +36,7 @@ class MSALAuth:
         self.authority = f"https://login.microsoftonline.com/{tenant_id}"
         self.logger = logging.getLogger(__name__)
         
-        # 初始化 MSAL 应用
+        # Initialize MSAL application
         self.app = msal.ConfidentialClientApplication(
             client_id=self.client_id,
             client_credential=self.client_secret,
@@ -45,10 +45,10 @@ class MSALAuth:
     
     def get_login_url(self) -> str:
         """
-        获取登录 URL
+        Get login URL
         
         Returns:
-            str: 登录 URL
+            str: Login URL
         """
         try:
             auth_url = self.app.get_authorization_request_url(
@@ -66,16 +66,16 @@ class MSALAuth:
     
     async def handle_callback(self, code: str) -> Dict[str, Any]:
         """
-        处理回调，获取访问令牌
+        Handle callback, get access token
         
         Args:
-            code: 授权码
+            code: Authorization code
             
         Returns:
-            Dict[str, Any]: 包含访问令牌和用户信息的字典
+            Dict[str, Any]: Dictionary containing access token and user information
         """
         try:
-            # 使用授权码获取令牌
+            # Get token using authorization code
             result = self.app.acquire_token_by_authorization_code(
                 code=code,
                 scopes=self.scopes,
@@ -90,7 +90,7 @@ class MSALAuth:
                     detail=f"Token acquisition failed: {result.get('error')}"
                 )
             
-            # 获取用户信息
+            # Get user information
             user_info = await self._get_user_info(result["access_token"])
             
             logging.debug(f"User info: {user_info}")
@@ -112,16 +112,16 @@ class MSALAuth:
     
     async def _get_user_info(self, access_token: str) -> Dict[str, Any]:
         """
-        获取用户信息
+        Get user information
         
         Args:
-            access_token: 访问令牌
+            access_token: Access token
             
         Returns:
-            Dict[str, Any]: 用户信息
+            Dict[str, Any]: User information
         """
         try:
-            # 使用 Graph API 获取用户信息
+            # Get user info using Graph API
             headers = {"Authorization": f"Bearer {access_token}"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -143,33 +143,33 @@ class MSALAuth:
     
     def validate_token(self, token: str) -> bool:
         """
-        验证令牌
+        Validate token
         
         Args:
-            token: 要验证的令牌
+            token: Token to validate
             
         Returns:
-            bool: 令牌是否有效
+            bool: Whether the token is valid
         """
         try:
-            # 解码令牌
+            # Decode token
             decoded_token = jwt.decode(
                 token,
                 options={"verify_signature": False}
             )
             
-            # 记录令牌信息
+            # Log token information
             safe_log(self.logger.debug, f"Token claims: {decoded_token}")
             
-            # 验证令牌声明
+            # Validate token claims
             if not self._validate_claims(decoded_token):
                 return False
                 
-            # 验证令牌范围
+            # Validate token scopes
             if not self._validate_scopes(decoded_token):
                 return False
                 
-            # 验证令牌时间
+            # Validate token timing
             if not self._validate_timing(decoded_token):
                 return False
                 
@@ -180,7 +180,7 @@ class MSALAuth:
             return False
             
     def _validate_claims(self, decoded_token: dict) -> bool:
-        """验证令牌声明"""
+        """Validate token claims"""
         # Azure AD token issuer format is https://sts.windows.net/{tenant_id}/
         expected_issuer = f"https://sts.windows.net/{self.tenant_id}/"
         if decoded_token.get("iss") != expected_issuer:
@@ -199,7 +199,7 @@ class MSALAuth:
         return True
         
     def _validate_scopes(self, decoded_token: dict) -> bool:
-        """验证令牌范围"""
+        """Validate token scopes"""
         # Get scopes from token, handle both 'scp' and 'scope' claims
         token_scopes = decoded_token.get("scp", "").split()
         if not token_scopes:
@@ -217,16 +217,16 @@ class MSALAuth:
         return True
         
     def _validate_timing(self, decoded_token: dict) -> bool:
-        """验证令牌时间"""
+        """Validate token timing"""
         current_time = time.time()
         
-        # 验证过期时间
+        # Validate expiration time
         exp = decoded_token.get("exp")
         if exp is None or exp < current_time:
             safe_log(self.logger.error, "Token expired")
             return False
             
-        # 验证生效时间
+        # Validate not before time
         if decoded_token.get("nbf", 0) > current_time:
             safe_log(self.logger.error, "Token not yet valid")
             return False
@@ -235,13 +235,13 @@ class MSALAuth:
     
     def refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """
-        刷新访问令牌
+        Refresh access token
         
         Args:
-            refresh_token: 刷新令牌
+            refresh_token: Refresh token
             
         Returns:
-            Optional[Dict[str, Any]]: 新的令牌信息
+            Optional[Dict[str, Any]]: New token information
         """
         try:
             result = self.app.acquire_token_by_refresh_token(

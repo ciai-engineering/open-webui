@@ -54,13 +54,13 @@ router = APIRouter()
 async def submit_leave_form(
     request: Request,form_data: LeaveForm, session_user: UserModel = Depends(get_current_user)
 ):
-    safe_log(logging.info, "收到休假申请表单", {"name": form_data.name, "from": form_data.leavefrom, "to": form_data.leaveto})
+    safe_log(logging.info, "Received leave application form", {"name": form_data.name, "from": form_data.leavefrom, "to": form_data.leaveto})
     if session_user:
         if not session_user.extra_sso:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
         
         try:
-            # 解析用户SSO数据
+            # Parse user SSO data
             extra_sso = json.loads(session_user.extra_sso)
             logging.debug(f"extra_sso: {extra_sso}")
             access_token = extra_sso.get(ACCESS_TOKEN)
@@ -70,21 +70,21 @@ async def submit_leave_form(
             if not access_token:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
                 
-            safe_log(logging.debug, "SSO令牌状态", {
+            safe_log(logging.debug, "SSO token status", {
                 "has_access_token": bool(access_token)
             })
 
-            # 使用 MSAL 验证令牌
+            # Validate token using MSAL
             is_valid = auth.validate_token(access_token)
             if not is_valid:
-                safe_log(logging.warning, "令牌已过期，尝试刷新令牌")
+                safe_log(logging.warning, "Token expired, attempting to refresh token")
                 refresh_result = auth.refresh_token(refresh_token)
                 if refresh_result and refresh_result.get("access_token"):
                     new_access_token = refresh_result.get("access_token")
-                    safe_log(logging.info, "刷新令牌成功，新令牌：", {"refresh_token": new_access_token})
+                    safe_log(logging.info, "Token refresh successful, new token:", {"refresh_token": new_access_token})
                     if new_access_token:
                         is_valid = auth.validate_token(new_access_token)
-                        safe_log(logging.info, "新令牌验证结果：", {"is_valid": is_valid})
+                        safe_log(logging.info, "New token validation result:", {"is_valid": is_valid})
                         access_token = new_access_token
             if not is_valid:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
@@ -107,7 +107,7 @@ Sincerely,
 """
             recipient = HR_EMAIL
             if not recipient:
-                safe_log(logging.warning, "HR_EMAIL未设置，将使用用户自己的邮箱", {"email": session_user.email})
+                safe_log(logging.warning, "HR_EMAIL not set, will use user's own email", {"email": session_user.email})
                 recipient = session_user.email
             
             try:
@@ -135,35 +135,35 @@ Sincerely,
                 # make the mail content and send the mail can customize the subject and body
                 attachment_name = 'Leave_Application_Form.pdf'
 
-                safe_log(logging.info, "准备发送邮件", {"recipient": recipient, "subject": subject})
+                safe_log(logging.info, "Preparing to send email", {"recipient": recipient, "subject": subject})
                 
                 try:
-                    # 使用新的邮件发送函数
+                    # Use new email sending function
                     success = await send_email_with_attachments(
                         access_token=access_token,
                         to_email=recipient,
                         subject=subject,
                         body=body,
-                        attachment_paths=[attachment_path],  # 暂时不发送附件
-                        cc_emails=[]  # 抄送给申请人
+                        attachment_paths=[attachment_path],  # Temporarily not sending attachments
+                        cc_emails=[]  # CC to applicant
                     )
                 except PermissionError as e:
-                    safe_log(logging.error, "发送邮件时权限错误", exception=e)
+                    safe_log(logging.error, "Permission error while sending email", exception=e)
                     raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
                 except ValueError as e:
-                    safe_log(logging.error, "发送邮件时参数错误", exception=e)
+                    safe_log(logging.error, "Parameter error while sending email", exception=e)
                     raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)
                 except Exception as e:
-                    safe_log(logging.error, "发送邮件时发生未知错误", exception=e)
-                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送邮件时出错: {str(e)}")
+                    safe_log(logging.error, "Unknown error occurred while sending email", exception=e)
+                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error sending email: {str(e)}")
                 
                 if not success:
-                    raise Exception("邮件发送失败")
+                    raise Exception("Email sending failed")
                     
-                safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
+                safe_log(logging.info, "Email sent successfully", {"recipient": recipient})
             except Exception as e:
-                safe_log(logging.error, "发送邮件时发生错误", exception=e)
-                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送邮件时出错: {str(e)}")
+                safe_log(logging.error, "Error occurred while sending email", exception=e)
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error sending email: {str(e)}")
 
             return {
                     "email": session_user.email,
@@ -171,8 +171,8 @@ Sincerely,
                     "recipient": recipient,
                 }
         except json.JSONDecodeError as e:
-            safe_log(logging.error, "无法解析用户SSO数据", exception=e)
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="无效的用户SSO数据")
+            safe_log(logging.error, "Unable to parse user SSO data", exception=e)
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid user SSO data")
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_CRED)
 
@@ -185,13 +185,13 @@ Sincerely,
 async def submit_hr_doc_form(
     request: Request,form_data: HrDocsForm, session_user = Depends(get_current_user)
 ):
-    safe_log(logging.info, "收到HR文档请求表单", {"name": form_data.name, "type": form_data.type_of_document})
+    safe_log(logging.info, "Received HR document request form", {"name": form_data.name, "type": form_data.type_of_document})
     if session_user:
         if not session_user.extra_sso:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
         
         try:
-            # 解析用户SSO数据
+            # Parse user SSO data
             extra_sso = json.loads(session_user.extra_sso)
             access_token = extra_sso.get(ACCESS_TOKEN)
             refresh_token = extra_sso.get("refresh_token")
@@ -199,7 +199,7 @@ async def submit_hr_doc_form(
             if not access_token:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
                 
-            safe_log(logging.info, "SSO令牌状态", {
+            safe_log(logging.info, "SSO token status", {
                 "has_access_token": bool(access_token), 
                 "has_refresh_token": bool(refresh_token)
             })
@@ -227,31 +227,31 @@ async def submit_hr_doc_form(
 
             recipient = HR_EMAIL
             if not recipient:
-                safe_log(logging.warning, "HR_EMAIL未设置，将使用用户自己的邮箱", {"email": session_user.email})
+                safe_log(logging.warning, "HR_EMAIL not set, will use user's own email", {"email": session_user.email})
                 recipient = session_user.email
             
             try:
-                safe_log(logging.info, "准备发送邮件", {"recipient": recipient, "subject": subject})
-                # 使用新的邮件发送函数
+                safe_log(logging.info, "Preparing to send email", {"recipient": recipient, "subject": subject})
+                # Use new email sending function
                 success = await send_email_with_attachments(
                     access_token=access_token,
                     to_email=recipient,
                     subject=subject,
                     body=body,
-                    attachment_paths=[],  # 暂时不发送附件
-                    cc_emails=[session_user.email]  # 抄送给申请人
+                    attachment_paths=[],  # Temporarily not sending attachments
+                    cc_emails=[session_user.email]  # CC to applicant
                 )
                 if success:
-                    safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
+                    safe_log(logging.info, "Email sent successfully", {"recipient": recipient})
             except PermissionError as e:
-                safe_log(logging.error, "发送邮件时权限错误", exception=e)
+                safe_log(logging.error, "Permission error while sending email", exception=e)
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
             except ValueError as e:
-                safe_log(logging.error, "发送邮件时参数错误", exception=e)
+                safe_log(logging.error, "Parameter error while sending email", exception=e)
                 raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)
             except Exception as e:
-                safe_log(logging.error, "发送邮件时发生未知错误", exception=e)
-                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送邮件时出错: {str(e)}")
+                safe_log(logging.error, "Unknown error occurred while sending email", exception=e)
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error sending email: {str(e)}")
 
             hr_docs_response = HrDocsResponse(
                 email=session_user.email,
@@ -260,7 +260,7 @@ async def submit_hr_doc_form(
             )
             return hr_docs_response
         except json.JSONDecodeError as e:
-            safe_log(logging.error, "无法解析用户SSO数据", exception=e)
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="无效的用户SSO数据")
+            safe_log(logging.error, "Unable to parse user SSO data", exception=e)
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid user SSO data")
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_CRED)

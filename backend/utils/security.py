@@ -4,7 +4,7 @@ import json
 import re
 
 def mask_sensitive_data(data, sensitive_keys=None):
-    """遮盖敏感数据"""
+    """Mask sensitive data"""
     if sensitive_keys is None:
         sensitive_keys = [
             "access_token", 
@@ -30,21 +30,21 @@ def mask_sensitive_data(data, sensitive_keys=None):
         return data
 
 def safe_str(obj):
-    """安全地将对象转换为字符串，去除可能包含的敏感信息"""
+    """Safely convert object to string, removing potentially sensitive information"""
     if obj is None:
         return "None"
         
-    # 将对象转为字符串
+    # Convert object to string
     s = str(obj)
     
-    # 使用正则表达式替换可能的令牌
-    # 匹配可能是令牌的长字符串样式
+    # Use regex to replace potential tokens
+    # Match long string patterns that might be tokens
     sensitive_patterns = [
-        r'eyJ[a-zA-Z0-9_-]{5,}(\.[a-zA-Z0-9_-]{5,}){0,2}', # JWT格式（更全面的匹配）
-        r'Bearer\s+[\w\.-]+', # 授权头
-        r'token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # token赋值
-        r'access_token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # access_token赋值
-        r'refresh_token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # refresh_token赋值
+        r'eyJ[a-zA-Z0-9_-]{5,}(\.[a-zA-Z0-9_-]{5,}){0,2}', # JWT format (more comprehensive match)
+        r'Bearer\s+[\w\.-]+', # Authorization header
+        r'token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # token assignment
+        r'access_token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # access_token assignment
+        r'refresh_token["\']?\s*[=:]\s*["\']?[\w\.-]+["\']?', # refresh_token assignment
     ]
     
     for pattern in sensitive_patterns:
@@ -53,8 +53,8 @@ def safe_str(obj):
     return s
 
 def safe_log(log_func, message, data=None, exception=None):
-    """安全记录信息，遮盖敏感数据"""
-    # 处理普通消息
+    """Safely log information, masking sensitive data"""
+    # Handle regular messages
     if data:
         if isinstance(data, (dict, list)):
             masked_data = mask_sensitive_data(data)
@@ -62,7 +62,7 @@ def safe_log(log_func, message, data=None, exception=None):
         else:
             log_func(f"{message}: {safe_str(data)}")
     elif exception:
-        # 安全地记录异常信息
+        # Safely log exception information
         log_func(f"{message}: {type(exception).__name__} - {safe_str(str(exception))}")
     else:
         log_func(message) 
