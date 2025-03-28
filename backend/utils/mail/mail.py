@@ -47,7 +47,7 @@ def create_file_attachment(file_path: Union[str, Path], name: Optional[str] = No
     
     # Get file extension and determine content type
     file_extension = file_path.suffix.lower()
-    safe_log(logger.info, f"File extension: {file_extension}")
+    safe_log(logger.debug, f"File extension: {file_extension}")
     content_type_map = {
         '.txt': 'text/plain',
         '.pdf': 'application/pdf',
@@ -63,7 +63,7 @@ def create_file_attachment(file_path: Union[str, Path], name: Optional[str] = No
         '.rar': 'application/x-rar-compressed',
     }
     content_type = content_type_map.get(file_extension, 'application/octet-stream')
-    safe_log(logger.info, f"Content type: {content_type}")
+    safe_log(logger.debug, f"Content type: {content_type}")
 
     # Create FileAttachment object
     attachment = FileAttachment()
@@ -71,7 +71,7 @@ def create_file_attachment(file_path: Union[str, Path], name: Optional[str] = No
     attachment.content_type = content_type
     attachment.content_bytes = base64.b64decode(file_content_base64)  # Convert to bytes
     attachment.o_data_type = "#microsoft.graph.fileAttachment"
-    safe_log(logger.info, f"Attachment: {attachment}")
+    safe_log(logger.debug, f"Attachment: {attachment}")
     return attachment
 
 async def send_email_with_attachments(
@@ -166,5 +166,5 @@ async def send_email_with_attachments(
     
     # Send the email
     await graph_client.me.send_mail.post(request_body)
-    safe_log(logger.info, f"Email sent successfully using Graph SDK to {to_email}")
+    safe_log(logger.info, f"Email sent successfully to {to_email}")
     return True

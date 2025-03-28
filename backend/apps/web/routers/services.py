@@ -70,7 +70,7 @@ async def submit_leave_form(
             if not access_token:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
                 
-            safe_log(logging.info, "SSO令牌状态", {
+            safe_log(logging.debug, "SSO令牌状态", {
                 "has_access_token": bool(access_token)
             })
 
@@ -81,7 +81,7 @@ async def submit_leave_form(
                 refresh_result = auth.refresh_token(refresh_token)
                 if refresh_result and refresh_result.get("access_token"):
                     new_access_token = refresh_result.get("access_token")
-                    safe_log(logging.info, "刷新令牌成功，新令牌：", {"new_access_token": new_access_token})
+                    safe_log(logging.info, "刷新令牌成功，新令牌：", {"refresh_token": new_access_token})
                     if new_access_token:
                         is_valid = auth.validate_token(new_access_token)
                         safe_log(logging.info, "新令牌验证结果：", {"is_valid": is_valid})

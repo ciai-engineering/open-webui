@@ -20,7 +20,7 @@ def mask_sensitive_data(data, sensitive_keys=None):
         masked_data = copy.deepcopy(data)
         for key in masked_data:
             if key.lower() in [s.lower() for s in sensitive_keys]:
-                masked_data[key] = "******"
+                masked_data[key] = masked_data[key][:3] + "******"
             elif isinstance(masked_data[key], (dict, list)):
                 masked_data[key] = mask_sensitive_data(masked_data[key], sensitive_keys)
         return masked_data

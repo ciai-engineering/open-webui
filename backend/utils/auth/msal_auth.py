@@ -159,7 +159,7 @@ class MSALAuth:
             )
             
             # 记录令牌信息
-            safe_log(self.logger.info, f"Token claims: {decoded_token}")
+            safe_log(self.logger.debug, f"Token claims: {decoded_token}")
             
             # 验证令牌声明
             if not self._validate_claims(decoded_token):
@@ -206,8 +206,8 @@ class MSALAuth:
             token_scopes = decoded_token.get("scope", "").split()
             
         # Log scopes for debugging
-        safe_log(self.logger.info, f"Token scopes: {token_scopes}")
-        safe_log(self.logger.info, f"Required scopes: {self.scopes}")
+        safe_log(self.logger.debug, f"Token scopes: {token_scopes}")
+        safe_log(self.logger.debug, f"Required scopes: {self.scopes}")
         
         # Check if all required scopes are present
         if not all(scope in token_scopes for scope in self.scopes):
