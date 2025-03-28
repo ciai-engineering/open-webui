@@ -73,6 +73,21 @@ async def submit_leave_form(
             safe_log(logging.info, "SSO令牌状态", {
                 "has_access_token": bool(access_token)
             })
+
+            # 使用 MSAL 验证令牌
+            is_valid = auth.validate_token(access_token)
+            if not is_valid:
+                safe_log(logging.warning, "令牌已过期，尝试刷新令牌")
+                refresh_result = auth.refresh_token(refresh_token)
+                if refresh_result and refresh_result.get("access_token"):
+                    new_access_token = refresh_result.get("access_token")
+                    safe_log(logging.info, "刷新令牌成功，新令牌：", {"new_access_token": new_access_token})
+                    if new_access_token:
+                        is_valid = auth.validate_token(new_access_token)
+                        safe_log(logging.info, "新令牌验证结果：", {"is_valid": is_valid})
+            if not is_valid:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
+
             
             subject = f"Leave of Absence Request - {form_data.name}"
             body = f"""
@@ -133,24 +148,7 @@ Sincerely,
                     )
                 except PermissionError as e:
                     safe_log(logging.error, "发送邮件时权限错误", exception=e)
-                    safe_log(logging.info, "尝试刷新令牌")
-                    refresh_result = auth.refresh_token(refresh_token)
-                    if refresh_result and refresh_result.get("access_token"):
-                        # 使用新的邮件发送函数
-                        success = await send_email_with_attachments(
-                            access_token=refresh_result.get("access_token", ""),
-                            to_email=recipient,
-                            subject=subject,
-                            body=body,
-                            attachment_paths=[attachment_path],  # 暂时不发送附件
-                            cc_emails=[]  # 抄送给申请人
-                        )
-                        if success:
-                            safe_log(logging.info, "邮件发送成功", {"recipient": recipient})
-                        else:
-                            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
-                    else:
-                        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
+                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.EMAIL_ERROR)
                 except ValueError as e:
                     safe_log(logging.error, "发送邮件时参数错误", exception=e)
                     raise HTTPException(status.HTTP_406_NOT_ACCEPTABLE, detail=ERROR_MESSAGES.ILIGAL_PARAM)

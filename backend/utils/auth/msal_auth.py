@@ -154,7 +154,7 @@ class MSALAuth:
             result = self.app.acquire_token_silent(
                 scopes=self.scopes,
                 account=None,
-                force_refresh=True
+                force_refresh=True,
             )
             return isinstance(result, dict) and "error" not in result
         except Exception as e:
