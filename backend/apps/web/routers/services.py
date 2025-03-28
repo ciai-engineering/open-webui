@@ -85,6 +85,7 @@ async def submit_leave_form(
                     if new_access_token:
                         is_valid = auth.validate_token(new_access_token)
                         safe_log(logging.info, "新令牌验证结果：", {"is_valid": is_valid})
+                        access_token = new_access_token
             if not is_valid:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.INVALID_ACCOUNT)
 

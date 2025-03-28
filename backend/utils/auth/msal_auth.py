@@ -200,10 +200,18 @@ class MSALAuth:
         
     def _validate_scopes(self, decoded_token: dict) -> bool:
         """验证令牌范围"""
-        scopes = decoded_token.get("scp", "").split()
+        # Get scopes from token, handle both 'scp' and 'scope' claims
+        token_scopes = decoded_token.get("scp", "").split()
+        if not token_scopes:
+            token_scopes = decoded_token.get("scope", "").split()
+            
+        # Log scopes for debugging
+        safe_log(self.logger.info, f"Token scopes: {token_scopes}")
+        safe_log(self.logger.info, f"Required scopes: {self.scopes}")
         
-        if not all(scope in scopes for scope in self.scopes):
-            safe_log(self.logger.error, "Missing required scopes")
+        # Check if all required scopes are present
+        if not all(scope in token_scopes for scope in self.scopes):
+            safe_log(self.logger.error, f"Missing required scopes. Token scopes: {token_scopes}, Required scopes: {self.scopes}")
             return False
             
         return True
