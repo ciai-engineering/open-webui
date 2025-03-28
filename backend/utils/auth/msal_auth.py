@@ -1,7 +1,9 @@
 import logging
 import msal
 import aiohttp
-from typing import Optional, Dict, Any
+import jwt
+import time
+from typing import Optional, Dict, Any, List
 from fastapi import HTTPException, status
 from utils.security import safe_log
 
@@ -150,16 +152,78 @@ class MSALAuth:
             bool: 令牌是否有效
         """
         try:
-            # 验证令牌
-            result = self.app.acquire_token_silent(
-                scopes=self.scopes,
-                account=None,
-                force_refresh=True,
+            # 解码令牌
+            decoded_token = jwt.decode(
+                token,
+                options={"verify_signature": False}
             )
-            return isinstance(result, dict) and "error" not in result
+            
+            # 记录令牌信息
+            safe_log(self.logger.info, f"Token claims: {decoded_token}")
+            
+            # 验证令牌声明
+            if not self._validate_claims(decoded_token):
+                return False
+                
+            # 验证令牌范围
+            if not self._validate_scopes(decoded_token):
+                return False
+                
+            # 验证令牌时间
+            if not self._validate_timing(decoded_token):
+                return False
+                
+            return True
+            
         except Exception as e:
             safe_log(self.logger.error, "Token validation failed", exception=e)
             return False
+            
+    def _validate_claims(self, decoded_token: dict) -> bool:
+        """验证令牌声明"""
+        # Azure AD token issuer format is https://sts.windows.net/{tenant_id}/
+        expected_issuer = f"https://sts.windows.net/{self.tenant_id}/"
+        if decoded_token.get("iss") != expected_issuer:
+            safe_log(self.logger.error, f"Invalid issuer. Expected: {expected_issuer}, Got: {decoded_token.get('iss')}")
+            return False
+            
+        # Accept both client ID and Microsoft Graph API identifier as valid audiences
+        valid_audiences = [
+            self.client_id,
+            "00000003-0000-0000-c000-000000000000"  # Microsoft Graph API identifier
+        ]
+        if decoded_token.get("aud") not in valid_audiences:
+            safe_log(self.logger.error, f"Invalid audience. Expected one of: {valid_audiences}, Got: {decoded_token.get('aud')}")
+            return False
+            
+        return True
+        
+    def _validate_scopes(self, decoded_token: dict) -> bool:
+        """验证令牌范围"""
+        scopes = decoded_token.get("scp", "").split()
+        
+        if not all(scope in scopes for scope in self.scopes):
+            safe_log(self.logger.error, "Missing required scopes")
+            return False
+            
+        return True
+        
+    def _validate_timing(self, decoded_token: dict) -> bool:
+        """验证令牌时间"""
+        current_time = time.time()
+        
+        # 验证过期时间
+        exp = decoded_token.get("exp")
+        if exp is None or exp < current_time:
+            safe_log(self.logger.error, "Token expired")
+            return False
+            
+        # 验证生效时间
+        if decoded_token.get("nbf", 0) > current_time:
+            safe_log(self.logger.error, "Token not yet valid")
+            return False
+            
+        return True
     
     def refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """
