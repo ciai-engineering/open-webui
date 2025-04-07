@@ -1,68 +1,170 @@
 import logging
+import base64
+from pathlib import Path
+from typing import List, Optional, Union
+from msgraph.graph_service_client import GraphServiceClient
+from msgraph.generated.users.item.send_mail.send_mail_post_request_body import SendMailPostRequestBody
+from msgraph.generated.models.message import Message
+from msgraph.generated.models.item_body import ItemBody
+from msgraph.generated.models.body_type import BodyType
+from msgraph.generated.models.recipient import Recipient
+from msgraph.generated.models.email_address import EmailAddress
+from msgraph.generated.models.file_attachment import FileAttachment
+from azure.core.credentials import AccessToken, TokenCredential as AzureTokenCredential
 
-from .graph import Graph
-from .fill_form import FillLeaveForm
-from apps.web.models.services import LeaveForm
+from utils.security import safe_log
 
-class Mail:
-    graph: Graph
+logger = logging.getLogger(__name__)
 
-    def __init__(self, client_id: str, tenant_id: str, authorization: str, graph_user_scopes: list[str] = ["Mail.Send"]):
-        azure_settings={}
-        azure_settings["client_id"] = client_id
-        azure_settings["tenant_id"] = tenant_id
-        azure_settings["graph_user_scopes"] = graph_user_scopes
-        azure_settings["authorization"] = authorization
-        self.graph: Graph = Graph(azure_settings)
+class TokenCredential(AzureTokenCredential):
+    def __init__(self, access_token):
+        self.access_token = access_token
 
-    async def send_mail(self, subject, body, recipient, form_data: LeaveForm):
-        """
-        Send an email with a filled leave form as an attachment.
+    def get_token(self, *scopes, **kwargs):
+        return AccessToken(self.access_token, 3600)  # 1 hour expiry
 
-        Args:
-            subject (str): The subject of the email.
-            body (str): The body content of the email.
-            recipient (str): The recipient's email address.
-            form_data (LeaveForm): The data to fill in the leave form.
-        """
-        # fill the leave form
-        template_path = 'utils/mail/leave_template.pdf'
-        output_path = 'utils/mail/'
+def create_file_attachment(file_path: Union[str, Path], name: Optional[str] = None) -> FileAttachment:
+    """
+    Create a FileAttachment object from a file path
+    
+    Args:
+        file_path: Path to the file to attach
+        name: Optional name for the attachment (defaults to file name)
+    
+    Returns:
+        FileAttachment object
+    """
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    with open(file_path, 'rb') as f:
+        file_content = f.read()
+        file_content_base64 = base64.b64encode(file_content).decode("utf-8")
+    
+    # Use provided name or file name
+    attachment_name = name or file_path.name
+    
+    # Get file extension and determine content type
+    file_extension = file_path.suffix.lower()
+    safe_log(logger.debug, f"File extension: {file_extension}")
+    content_type_map = {
+        '.txt': 'text/plain',
+        '.pdf': 'application/pdf',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.zip': 'application/zip',
+        '.rar': 'application/x-rar-compressed',
+    }
+    content_type = content_type_map.get(file_extension, 'application/octet-stream')
+    safe_log(logger.debug, f"Content type: {content_type}")
 
-        data = {
-                    '{NAME}': form_data.name,
-                    '{ID}': form_data.employee_id,
-                    '{JOBTITLE}': form_data.job_title,
-                    '{DEPT}': form_data.dept,
-                    '{LEAVETYPE}': form_data.type_of_leave,
-                    '{REMARKS}': form_data.remarks,
-                    '{LEAVEFROM}': form_data.leavefrom,
-                    '{LEAVETO}': form_data.leaveto,
-                    '{DAYS}': form_data.days,
-                    '{ADDRESS}': form_data.address,
-                    '{TELE}': form_data.tele,
-                    '{EMAIL}': form_data.email,
-                    '{DATE}': form_data.date,
-                }
-        # get the form file path
-        file_path = FillLeaveForm(template_path, output_path, data).fill_template()
-        # make the mail content and send the mail can customize the subject and body
-        attachment_path = file_path
-        attachment_name = 'Leave_Application_Form.pdf'
+    # Create FileAttachment object
+    attachment = FileAttachment()
+    attachment.name = attachment_name
+    attachment.content_type = content_type
+    attachment.content_bytes = base64.b64decode(file_content_base64)  # Convert to bytes
+    attachment.o_data_type = "#microsoft.graph.fileAttachment"
+    safe_log(logger.debug, f"Attachment: {attachment}")
+    return attachment
 
-        logging.info("Sending email...")
-        await self.graph.send_leave_mail(subject, body, recipient, attachment_path, attachment_name)
-        logging.info("Success")
-
-    async def send_simple_mail(self, subject, content, recipient):
-        """
-        Send a simple email without any attachments.
-
-        Args:
-            subject (str): The subject of the email.
-            content (str): The body content of the email.
-            recipient (str): The recipient's email address.
-        """
-        logging.info("Sending simple email...")
-        await self.graph.send_leave_mail(subject, content, recipient, None, None)
-        logging.info("Success")
+async def send_email_with_attachments(
+    access_token: str,
+    to_email: str,
+    subject: str,
+    body: str,
+    attachment_paths: Optional[List[str]] = None,
+    cc_emails: Optional[List[str]] = None,
+    bcc_emails: Optional[List[str]] = None
+) -> bool:
+    """
+    Send email with attachments using Microsoft Graph SDK
+    
+    Args:
+        access_token: Microsoft Graph API access token
+        to_email: Recipient email address
+        subject: Email subject
+        body: Email body content
+        attachment_paths: List of file paths to attach
+        cc_emails: List of CC email addresses
+        bcc_emails: List of BCC email addresses
+    
+    Returns:
+        bool: True if email was sent successfully, False otherwise
+    """
+    # Create a custom credential that uses the access token
+    credential = TokenCredential(access_token)
+    
+    # Create Graph client with the credential
+    graph_client = GraphServiceClient(credentials=credential)
+    
+    # Create recipients list
+    to_recipients = [
+        Recipient(
+            email_address=EmailAddress(
+                address=to_email,
+            ),
+        ),
+    ]
+    
+    # Add CC recipients if provided
+    if cc_emails:
+        to_recipients.extend([
+            Recipient(
+                email_address=EmailAddress(
+                    address=cc_email,
+                ),
+            )
+            for cc_email in cc_emails
+        ])
+    
+    # Create BCC recipients if provided
+    bcc_recipients = [
+        Recipient(
+            email_address=EmailAddress(
+                address=bcc_email,
+            ),
+        )
+        for bcc_email in (bcc_emails or [])
+    ]
+    
+    # Create the email message
+    message = Message(
+        subject=subject,
+        body=ItemBody(
+            content_type=BodyType.Text,
+            content=body,
+        ),
+        to_recipients=to_recipients,
+        bcc_recipients=bcc_recipients,
+    )
+    
+    # Add attachments if provided
+    if attachment_paths:
+        attachments = []
+        for file_path in attachment_paths:
+            try:
+                attachment = create_file_attachment(file_path)
+                attachments.append(attachment)
+            except Exception as e:
+                safe_log(logger.error, f"Error creating attachment from {file_path}: {str(e)}")
+                continue
+        
+        if attachments:
+            message.attachments = attachments
+    
+    # Create the request body
+    request_body = SendMailPostRequestBody(
+        message=message,
+    )
+    
+    # Send the email
+    await graph_client.me.send_mail.post(request_body)
+    safe_log(logger.info, f"Email sent successfully to {to_email}")
+    return True

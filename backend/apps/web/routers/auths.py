@@ -3,17 +3,19 @@ import re
 import uuid
 import json
 import asyncio
+import time
+import aiohttp
+from typing import Dict, Optional, Any, Coroutine, Union, List, cast, TypeVar, Awaitable, Callable, Type, Protocol, runtime_checkable, TypedDict, NotRequired, Literal, overload, NoReturn
 
 from fastapi import Request, Depends, HTTPException, status, APIRouter
 from fastapi.responses import RedirectResponse
-from fastapi_sso.sso.microsoft import MicrosoftSSO
 from pydantic import BaseModel
 
 from utils.avatar import generate_avatar
+from utils.security import safe_log, mask_sensitive_data
 from apps.web.exceptions.exception import IllegalAccountException
 import httpcore
 import httpx
-
 
 from apps.web.models.auths import (
     SigninForm,
@@ -28,6 +30,7 @@ from apps.web.models.auths import (
 )
 from apps.web.models.users import Users
 from apps.web.models.staffs import Staffs
+from apps.web.models.sso import SSOUser
 
 from utils.utils import (
     get_password_hash,
@@ -185,8 +188,8 @@ async def signup(request: Request, form_data: SignupForm):
             form_data.email.lower(),
             hashed,
             form_data.name,
-            form_data.profile_image_url,
-            form_data.extra_sso,
+            form_data.profile_image_url or "/user.png",
+            form_data.extra_sso or "{}",
             role,
         )
 
@@ -195,7 +198,6 @@ async def signup(request: Request, form_data: SignupForm):
                 data={"id": user.id},
                 expires_delta=parse_duration(request.app.state.JWT_EXPIRES_IN),
             )
-            # response.set_cookie(key='token', value=token, httponly=True)
 
             if request.app.state.WEBHOOK_URL:
                 post_webhook(
@@ -221,7 +223,7 @@ async def signup(request: Request, form_data: SignupForm):
         else:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
     except Exception as err:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.DEFAULT(err))
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.DEFAULT(str(err)))
 
 
 ############################
@@ -231,7 +233,6 @@ async def signup(request: Request, form_data: SignupForm):
 
 @router.post("/add", response_model=SigninResponse)
 async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
-
     if not validate_email_format(form_data.email.lower()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
@@ -241,15 +242,14 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
-
-        print(form_data)
         hashed = get_password_hash(form_data.password)
         user = Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,
             form_data.name,
-            form_data.profile_image_url,
-            form_data.role,
+            form_data.profile_image_url or "/user.png",
+            form_data.extra_sso or "{}",
+            form_data.role or "user",
         )
 
         if user:
@@ -267,7 +267,7 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         else:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
     except Exception as err:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.DEFAULT(err))
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ERROR_MESSAGES.DEFAULT(str(err)))
 
 
 ############################
@@ -360,7 +360,7 @@ async def create_api_key_(user=Depends(get_current_user)):
 # delete api key
 @router.delete("/api_key", response_model=bool)
 async def delete_api_key(user=Depends(get_current_user)):
-    success = Users.update_user_api_key_by_id(user.id, None)
+    success = Users.update_user_api_key_by_id(user.id, "")
     return success
 
 
@@ -378,33 +378,44 @@ async def get_api_key(user=Depends(get_current_user)):
 ############################
 # SignIn with Microsoft Entra ID - SSO
 ############################
-
 logging.info("Init MicrosoftSSO")
-sso = MicrosoftSSO(
+from utils.auth.msal_auth import MSALAuth
+auth = MSALAuth(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
-    tenant=TENANT,
-    redirect_uri=REDIRECT_URI,
-    allow_insecure_http=True,
-    scope=["User.Read", "Directory.Read.All", "User.ReadBasic.All", "Mail.Read", "Mail.Send"],
+    tenant_id=TENANT,
+    scopes=["User.Read", "Directory.Read.All", "User.ReadBasic.All", "Mail.Read", "Mail.Send"],
+    redirect_uri=REDIRECT_URI
 )
 
 @router.get("/signin/sso", response_model=SigninResponse)
 async def signin_with_sso():
     """Initialize auth and redirect"""
     logging.info("signin_with_sso")
-    with sso:
-        return await sso.get_login_redirect()
+
+    # 获取登录URL
+    login_url = auth.get_login_url()
+    return RedirectResponse(url=login_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 ACCESS_TOKEN = "access_token"
+REFRESH_TOKEN = "refresh_token"
+EXPIRES_AT = "expires_at"
+
 @router.get("/signin/callback", response_model=SigninResponse)
 async def signin_callback(request: Request):
     """Verify login"""
-    logging.info(f"Request query params: {request.headers}")
     try:
+        # 记录请求参数（安全地遮盖敏感信息）
+        safe_log(logging.info, "Request query params", request.headers)
+        
+        # 获取SSO用户
         sso_user = await retry_operation(lambda: get_sso_user(request))
-        staff_dict = await retry_operation(lambda: get_staff_dict(sso_user))
+        
+        # 获取员工信息
+        staff_dict = await retry_operation(lambda: get_staff_dict(sso_user, request))
+        
+        # 获取用户
         user = await retry_operation(lambda: get_or_create_user(request, sso_user, staff_dict))
         token = create_token(data={"id": user.id}, expires_delta=parse_duration(request.app.state.JWT_EXPIRES_IN))
 
@@ -440,30 +451,56 @@ async def retry_operation(operation, retries=5, delay=1):
 async def get_sso_user(request: Request):
     """Get SSO user information"""
     async def operation():
-        with sso:
-            sso_user = await sso.verify_and_process(request)
-            logging.debug(f"sso.access_token(): {sso.access_token}")
-            return sso_user
+        # 获取授权码
+        code = request.query_params.get("code")
+        if not code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authorization code not found"
+            )
+        
+        # 使用 auth 处理回调，获取令牌和用户信息
+        result = await auth.handle_callback(code)
+        user_info: Dict[str, Any] = result["user_info"]
+        
+        # 构造与 OpenID 格式一致的用户信息
+        sso_user: SSOUser = SSOUser(user_info)
+        sso_user.set_tokens(
+            access_token=result["access_token"],
+            refresh_token=result.get("refresh_token"),
+            expires_in=result.get("expires_in")
+        )
+        
+        logging.debug(f"Access token: {sso_user.access_token}")
+        logging.debug(f"sso_user: {sso_user}")
+        return sso_user
 
     return await retry_operation(operation)
 
-async def get_staff_dict(sso_user):
-    """Get staff information dictionary"""
-    sso_user_email = sso_user.email.lower()
-    logging.info(f"sso_user_email: {sso_user_email}")
-    staff_dict = Staffs.get_staff_by_email(sso_user_email)
-    if staff_dict is None:
-        raise IllegalAccountException(f"No staff record found for email: {sso_user_email}")
-    if not isinstance(staff_dict, dict):
-        raise TypeError(f"Expected dict, got {type(staff_dict)} for staff_dict")
-    staff_dict[ACCESS_TOKEN] = sso.access_token
+async def get_staff_dict(sso_user: SSOUser, request: Optional[Request] = None):
+    """获取员工信息"""
+    try:
+        # 从SSO用户获取电子邮件
+        email = sso_user.email.lower()
+        safe_log(logging.info, f"获取用户信息", {"email": email})
+        staff_dict = Staffs.get_staff_by_email(email)
+        if staff_dict is None:
+            raise IllegalAccountException(f"No staff record found for email: {email}")
+        if not isinstance(staff_dict, dict):
+            raise TypeError(f"Expected dict, got {type(staff_dict)} for staff_dict")
+        
+        # 获取令牌和过期时间
+        staff_dict[ACCESS_TOKEN] = sso_user.access_token
+        staff_dict[REFRESH_TOKEN] = sso_user.refresh_token
+        staff_dict[EXPIRES_AT] = sso_user.token_expires_at
 
-    # Hide access token
-    staff_dict_hidden_token = {key: ("******" if key == ACCESS_TOKEN else value) for key, value in staff_dict.items()}
-    staff_dict_json_hidden_token = json.dumps(staff_dict_hidden_token)
-    logging.info(f"Got staff info from MSSQL by email where email is {sso_user_email}. Staff info is {staff_dict_json_hidden_token}")
+        # 安全记录用户信息（不含敏感数据）
+        safe_log(logging.info, f"从MSSQL获取到{email}的员工信息", mask_sensitive_data(staff_dict))
 
-    return json.dumps(staff_dict)
+        return json.dumps(staff_dict)
+    except Exception as e:
+        logging.error(f"Error getting staff_dict: {e}", exc_info=True)
+        raise
 
 async def get_or_create_user(request: Request, sso_user, staff_dict):
     """Get or create user"""
@@ -474,14 +511,21 @@ async def get_or_create_user(request: Request, sso_user, staff_dict):
         await signup(
             request,
             SignupForm(
-                email=sso_user_email, password=str(uuid.uuid4()), name=sso_user.display_name, profile_image_url=generate_avatar(sso_user.first_name, sso_user.last_name), extra_sso=staff_dict
+                email=sso_user_email,
+                password=str(uuid.uuid4()),
+                name=sso_user.display_name,
+                profile_image_url=generate_avatar(sso_user.first_name, sso_user.last_name),
+                extra_sso=staff_dict
             ),
         )
         logging.info("Signup done.")
         user = Auths.authenticate_user_by_trusted_header(sso_user_email)
-        role = "admin" if Users.get_num_users() <= 2 else "user"
-        user = Users.update_user_role_by_id(user.id, role)
-        logging.info(f"Update user's role to {role}.")
+        if user:
+            num_users = Users.get_num_users()
+            if num_users is not None:
+                role = "admin" if num_users <= 2 else "user"
+                user = Users.update_user_role_by_id(user.id, role)
+                logging.info(f"Update user's role to {role}.")
     else:
         user_info = user.__dict__.copy()
         if "extra_sso" in user_info:

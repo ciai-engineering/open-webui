@@ -155,15 +155,15 @@ microsoft-kiota-serialization-json==1.0.0
     # via msgraph-sdk
 microsoft-kiota-serialization-text==1.0.0
     # via msgraph-sdk
-msal==1.24.1
+msal>=1.25.0
     # via
     #   azure-identity
     #   msal-extensions
 msal-extensions==1.0.0
     # via azure-identity
-msgraph-core==1.0.0a4
+msgraph-core>=0.2.2
     # via msgraph-sdk
-msgraph-sdk==1.0.0
+msgraph-sdk>=1.0.0
     # via -r requirements.in
 multidict==6.0.4
     # via

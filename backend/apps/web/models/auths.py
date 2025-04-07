@@ -3,7 +3,7 @@ from typing import List, Union, Optional
 import time
 import uuid
 import logging
-from peewee import *
+from peewee import Model, CharField, TextField, BooleanField
 
 from apps.web.models.users import UserModel, Users
 from utils.utils import verify_password
@@ -151,7 +151,7 @@ class AuthsTable:
             user = Users.get_user_by_api_key(api_key)
             return user if user else None
         except:
-            return False
+            return None
 
     def authenticate_user_by_trusted_header(self, email: str) -> Optional[UserModel]:
         log.info(f"authenticate_user_by_trusted_header: {email}")

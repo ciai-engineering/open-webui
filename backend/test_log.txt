@@ -1,0 +1,179 @@
+Cleaning up...
+Files removed: 1322
+Starting tests...
+****************************************************
+Running test ./tests/utils/test_security.py number 1 out of 7
+****************************************************
+2025-03-20 11:36:59 Running tests in ./tests/utils/test_security.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/utils/test_security.py _________________
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/utils/test_security.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/utils/test_security.py:11: in <module>
+    from utils.security import mask_sensitive_data, safe_str, safe_log
+E   ModuleNotFoundError: No module named 'utils.security'
+=========================== short test summary info ============================
+ERROR tests/utils/test_security.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.20s ===============================
+****************************************************
+Running test ./tests/utils/mail/test_mail.py number 2 out of 7
+****************************************************
+2025-03-20 11:37:00 Running tests in ./tests/utils/mail/test_mail.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/utils/mail/test_mail.py ________________
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/utils/mail/test_mail.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/utils/mail/test_mail.py:11: in <module>
+    from utils.mail.mail import Mail
+E   ModuleNotFoundError: No module named 'utils.mail.mail'
+=========================== short test summary info ============================
+ERROR tests/utils/mail/test_mail.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.20s ===============================
+****************************************************
+Running test ./tests/utils/mail/test_graph.py number 3 out of 7
+****************************************************
+2025-03-20 11:37:01 Running tests in ./tests/utils/mail/test_graph.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+_______________ ERROR collecting tests/utils/mail/test_graph.py ________________
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/utils/mail/test_graph.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/utils/mail/test_graph.py:11: in <module>
+    from utils.mail.graph import Graph
+E   ModuleNotFoundError: No module named 'utils.mail.graph'
+=========================== short test summary info ============================
+ERROR tests/utils/mail/test_graph.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.09s ===============================
+****************************************************
+Running test ./tests/utils/cleaning/test_format_text_with_custom_map.py number 4 out of 7
+****************************************************
+2025-03-20 11:37:01 Running tests in ./tests/utils/cleaning/test_format_text_with_custom_map.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 2 items
+
+tests/utils/cleaning/test_format_text_with_custom_map.py F.              [100%]
+
+=================================== FAILURES ===================================
+______________ TestFormatTextWithCustomMap.test_load_cmap_custom _______________
+
+self = <test_format_text_with_custom_map.TestFormatTextWithCustomMap testMethod=test_load_cmap_custom>
+
+    def test_load_cmap_custom(self):
+        result = load_cmap_custom(self.format_file_name)
+        print(f'result: {result}')
+>       self.assertEqual(result, self.replacement_dict)
+E       AssertionError: {'(CID:431)': 'ff', '(cid:431)': 'ff'} != {'(CID:431)': 'ff'}
+E       - {'(CID:431)': 'ff', '(cid:431)': 'ff'}
+E       + {'(CID:431)': 'ff'}
+
+tests/utils/cleaning/test_format_text_with_custom_map.py:21: AssertionError
+----------------------------- Captured stdout call -----------------------------
+result: {'(CID:431)': 'ff', '(cid:431)': 'ff'}
+=========================== short test summary info ============================
+FAILED tests/utils/cleaning/test_format_text_with_custom_map.py::TestFormatTextWithCustomMap::test_load_cmap_custom
+========================= 1 failed, 1 passed in 0.03s ==========================
+****************************************************
+Running test ./tests/apps/web/routers/test_services_security.py number 5 out of 7
+****************************************************
+2025-03-20 11:37:02 Running tests in ./tests/apps/web/routers/test_services_security.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+______ ERROR collecting tests/apps/web/routers/test_services_security.py _______
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/apps/web/routers/test_services_security.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/apps/web/routers/test_services_security.py:13: in <module>
+    from apps.web.routers.services import router
+E   ModuleNotFoundError: No module named 'apps.web.routers.services'
+=========================== short test summary info ============================
+ERROR tests/apps/web/routers/test_services_security.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 1.50s ===============================
+****************************************************
+Running test ./tests/apps/web/routers/test_auths_security.py number 6 out of 7
+****************************************************
+2025-03-20 11:37:03 Running tests in ./tests/apps/web/routers/test_auths_security.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________ ERROR collecting tests/apps/web/routers/test_auths_security.py ________
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/apps/web/routers/test_auths_security.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/apps/web/routers/test_auths_security.py:13: in <module>
+    from apps.web.routers.auths import router, ACCESS_TOKEN, REFRESH_TOKEN
+E   ModuleNotFoundError: No module named 'apps.web.routers.auths'
+=========================== short test summary info ============================
+ERROR tests/apps/web/routers/test_auths_security.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.53s ===============================
+****************************************************
+Running test ./tests/apps/web/routers/test_auths.py number 7 out of 7
+****************************************************
+2025-03-20 11:37:04 Running tests in ./tests/apps/web/routers/test_auths.py with pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.11.9, pytest-8.3.2, pluggy-1.5.0
+rootdir: /Users/hao.qinghao/VSCodeProjects/open-webui/backend
+plugins: anyio-4.0.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/apps/web/routers/test_auths.py _____________
+ImportError while importing test module '/Users/hao.qinghao/VSCodeProjects/open-webui/backend/tests/apps/web/routers/test_auths.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/anaconda3/envs/rag/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/apps/web/routers/test_auths.py:15: in <module>
+    from apps.web.routers.auths import router
+E   ModuleNotFoundError: No module named 'apps.web.routers.auths'
+=========================== short test summary info ============================
+ERROR tests/apps/web/routers/test_auths.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.56s ===============================
+All tests completed.

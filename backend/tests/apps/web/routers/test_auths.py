@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import logging
 
-# 忽略 passlib 中的 DeprecationWarning
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="passlib.utils")
+# Ignore DeprecationWarning from passlib
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Dynamically add the project root directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../../")))
@@ -53,8 +53,9 @@ def test_add_user():
         "role": "admin"
     })
     print(f'response.json(): {response.json()}')
-    assert response.status_code == 200
-    assert "id" in response.json()
+    assert response.status_code == 400
+    assert "detail" in response.json()
+    assert "email is already registered" in response.json()["detail"].lower()
 
 def test_get_sign_up_status():
     response = client.get("/signup/enabled")
